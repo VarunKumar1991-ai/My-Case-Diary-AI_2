@@ -1,0 +1,102 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/noto-sans-devanagari";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens (architecture.md §8 / my_prompt3.md §8): a terminal-inspired
+ * black/grey/green system, deliberately NOT blue-heavy. Four cohesive tokens —
+ * background / surface ("card") / text (foreground) / accent (primary, green) —
+ * plus the standard shadcn semantic aliases mapped onto them so generated
+ * components (button, input, dialog, toast, …) inherit the theme for free.
+ *
+ * The app ships dark-only (the spec mandates the dark/green identity outright),
+ * so `:root` IS the theme — `.dark` is kept as an alias for shadcn convention
+ * and so `ThemeContext` has a class to toggle if a light mode is ever added.
+ */
+:root,
+.dark {
+  --background: #0a0d0b;
+  --foreground: #e4e7e4;
+
+  --card: #131713;
+  --card-foreground: #e4e7e4;
+  --popover: #131713;
+  --popover-foreground: #e4e7e4;
+
+  --primary: #4ade80;
+  --primary-foreground: #06210f;
+
+  --secondary: #1f2421;
+  --secondary-foreground: #c9cfc9;
+
+  --muted: #181c19;
+  --muted-foreground: #9aa39a;
+
+  --accent: #1f2e22;
+  --accent-foreground: #86efac;
+
+  --destructive: #f87171;
+  --destructive-foreground: #2a0a0a;
+
+  --border: #262b27;
+  --input: #1c211d;
+  --ring: #4ade80;
+
+  --radius: 0.5rem;
+
+  --font-sans: 'Inter Variable', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Noto Sans Devanagari Variable', monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+}

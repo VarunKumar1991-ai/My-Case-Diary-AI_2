@@ -1,0 +1,73 @@
+name: CI
+
+# Lint -> typecheck -> test -> build, run independently for each app so a
+# failure in one doesn't hide the other's results. Triggers on every push and
+# PR against main so issues surface before merge (my_prompt3.md §13).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Dummy values so config validation (backend/src/config/index.ts) passes
+      # for typecheck/test/build — no real database or secrets are needed,
+      # since the unit suite mocks the DB boundary entirely (vitest.config.ts).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/case_diary_ai_ci
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      OTP_PEPPER: ci-otp-pepper
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend (lint, typecheck, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (includes `tsc -b` typecheck)
+        run: npm run build

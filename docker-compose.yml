@@ -1,0 +1,72 @@
+name: case-diary-ai
+
+# Local full-stack run: Postgres + backend (Express/Drizzle) + frontend (static, behind nginx).
+# Secrets/URLs are read from a root-level `.env` (see `.env.example`); every variable
+# below has a safe local-dev fallback so `docker compose up` works out of the box,
+# but JWT_ACCESS_SECRET / JWT_REFRESH_SECRET / OTP_PEPPER MUST be overridden for any
+# shared or production-like environment.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-case_diary_ai}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-case_diary_ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: applies Drizzle migrations, then exits. Re-run any time with
+  # `docker compose run --rm migrate`.
+  migrate:
+    build:
+      context: ./backend
+    command: ["node", "dist/db/migrate.js"]
+    environment: &backend-env
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-case_diary_ai}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-change-me}
+      JWT_ACCESS_TTL_MINUTES: ${JWT_ACCESS_TTL_MINUTES:-15}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
+      OTP_PEPPER: ${OTP_PEPPER:-dev-only-otp-pepper-change-me}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-5}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      <<: *backend-env
+      PORT: "4000"
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
