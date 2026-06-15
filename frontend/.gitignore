@@ -13,6 +13,7 @@ dist-ssr
 *.local
 
 # Local environment overrides — never commit secrets/URLs (ship .env.example instead)
+# ONLY FOR LEARNING PURPOSE
 # .env
 
 # Editor directories and files
