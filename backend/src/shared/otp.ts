@@ -37,7 +37,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Sends real emails via SMTP (Gmail App Password). No-ops for mobile identifiers. */
 class EmailOtpSender implements OtpSender {
-  async send(identifier: string, code: string, purpose: string): Promise<void> {
+  async send(identifier: string, code: string, _purpose: string): Promise<void> {
     if (!EMAIL_PATTERN.test(identifier)) return;
 
     // Render can route outbound IPv4 but not IPv6. nodemailer's own DNS
@@ -73,7 +73,7 @@ const MOBILE_PATTERN = /^\+91[6-9]\d{9}$/;
  * No-ops for email identifiers.
  */
 class WhatsAppOtpSender implements OtpSender {
-  async send(identifier: string, code: string, purpose: string): Promise<void> {
+  async send(identifier: string, code: string, _purpose: string): Promise<void> {
     if (!MOBILE_PATTERN.test(identifier)) return;
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${config.whatsapp.accountSid}/Messages.json`;
