@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Local environment overrides — never commit secrets/URLs (ship .env.example instead)
-.env
+# .env
 
 # Editor directories and files
 .vscode/*
