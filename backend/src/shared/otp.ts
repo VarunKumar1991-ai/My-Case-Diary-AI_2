@@ -34,14 +34,22 @@ class ConsoleOtpSender implements OtpSender {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Render's network can't route outbound IPv6, but Gmail's SMTP host resolves
+// to an IPv6 address by default — force IPv4 (same ENETUNREACH class of issue
+// as the Supabase DATABASE_URL fix). `family` isn't in nodemailer's typing for
+// SMTPTransport.Options, so it's kept on a separate const to avoid the
+// resulting excess-property check picking the wrong createTransport overload.
+const emailTransportOptions = {
+  host: config.email.host,
+  port: config.email.port,
+  secure: config.email.port === 465,
+  auth: { user: config.email.user, pass: config.email.pass },
+  family: 4,
+};
+
 /** Sends real emails via SMTP (Gmail App Password). No-ops for mobile identifiers. */
 class EmailOtpSender implements OtpSender {
-  private transporter = nodemailer.createTransport({
-    host: config.email.host,
-    port: config.email.port,
-    secure: config.email.port === 465,
-    auth: { user: config.email.user, pass: config.email.pass },
-  });
+  private transporter = nodemailer.createTransport(emailTransportOptions);
 
   async send(identifier: string, code: string, purpose: string): Promise<void> {
     if (!EMAIL_PATTERN.test(identifier)) return;
