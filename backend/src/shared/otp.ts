@@ -1,7 +1,6 @@
 import { randomInt } from "node:crypto";
-import dns from "node:dns";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { config } from "../config/index.js";
 
 const HASH_ROUNDS = 10;
@@ -35,33 +34,27 @@ class ConsoleOtpSender implements OtpSender {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Sends real emails via SMTP (Gmail App Password). No-ops for mobile identifiers. */
+/**
+ * Sends real emails via Resend's HTTPS API. No-ops for mobile identifiers.
+ * Using the HTTP API (rather than SMTP) sidesteps the IPv4/IPv6 outbound
+ * issues that affect SMTP on Render.
+ */
 class EmailOtpSender implements OtpSender {
+  private readonly resend = new Resend(config.email.apiKey);
+
   async send(identifier: string, code: string, _purpose: string): Promise<void> {
     if (!EMAIL_PATTERN.test(identifier)) return;
 
-    // Render can route outbound IPv4 but not IPv6. nodemailer's own DNS
-    // resolution picks Gmail's IPv6 address (based on os.networkInterfaces(),
-    // which the `family` transport option doesn't override) and fails with
-    // ENETUNREACH — same class of issue as the Supabase DATABASE_URL fix.
-    // Resolve the A record ourselves and connect to that IPv4 address
-    // directly, keeping TLS hostname verification against the real host via
-    // `tls.servername`.
-    const [ipv4Address] = await dns.promises.resolve4(config.email.host);
-    const transporter = nodemailer.createTransport({
-      host: ipv4Address,
-      port: config.email.port,
-      secure: config.email.port === 465,
-      auth: { user: config.email.user, pass: config.email.pass },
-      tls: { servername: config.email.host },
-    });
-
-    await transporter.sendMail({
-      from: `"My Case Diary AI" <${config.email.from}>`,
+    const { error } = await this.resend.emails.send({
+      from: `My Case Diary AI <${config.email.from}>`,
       to: identifier,
       subject: "Your My Case Diary AI verification code",
       text: `Your verification code is ${code}. It expires in ${config.otp.ttlMinutes} minutes. If you did not request this, you can ignore this email.`,
     });
+
+    if (error) {
+      throw new Error(`Resend email request failed: ${error.message}`);
+    }
   }
 }
 

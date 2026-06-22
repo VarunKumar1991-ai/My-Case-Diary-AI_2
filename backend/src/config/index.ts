@@ -32,14 +32,13 @@ export const config = {
     maxAttempts: int("OTP_MAX_ATTEMPTS", 5),
   },
   email: {
-    // Enabled only when SMTP credentials are present — keeps `ConsoleOtpSender`
-    // as the sole sender for local setups that haven't configured SMTP yet.
-    enabled: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
-    host: process.env.SMTP_HOST ?? "smtp.gmail.com",
-    port: int("SMTP_PORT", 465),
-    user: process.env.SMTP_USER ?? "",
-    pass: process.env.SMTP_PASS ?? "",
-    from: process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "",
+    // Enabled only when a Resend API key is present — keeps `ConsoleOtpSender`
+    // as the sole sender for local setups that haven't configured email yet.
+    enabled: Boolean(process.env.RESEND_API_KEY),
+    apiKey: process.env.RESEND_API_KEY ?? "",
+    // Resend requires the sender address to be on a verified domain. Defaults to
+    // Resend's shared testing sender, which only delivers to your own account email.
+    from: process.env.EMAIL_FROM ?? "onboarding@resend.dev",
   },
   whatsapp: {
     // Enabled only when Twilio credentials are present — keeps `ConsoleOtpSender`
