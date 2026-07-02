@@ -9,6 +9,7 @@ import {
   users,
 } from "../../db/schema.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
+import { normalizeFirNo } from "../../shared/firNo.js";
 import { generateId } from "../../shared/id.js";
 import type { RequestContext } from "../../shared/http.js";
 import { consumeOtpChallenge, issueOtpChallenge } from "../../shared/otpChallenge.js";
@@ -44,7 +45,7 @@ export async function generateNextCaseDiaryNo(ownerId: string, firNo: string): P
   const rows = await db
     .select({ caseDiaryNo: caseDiaries.caseDiaryNo })
     .from(caseDiaries)
-    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, firNo)));
+    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, normalizeFirNo(firNo))));
 
   let highest = 0;
   for (const row of rows) {
@@ -68,7 +69,7 @@ async function assertCaseDiaryNoAvailable(
     .where(
       and(
         eq(caseDiaries.ownerId, ownerId),
-        eq(caseDiaries.firNo, firNo),
+        eq(caseDiaries.firNo, normalizeFirNo(firNo)),
         eq(caseDiaries.caseDiaryNo, caseDiaryNo),
       ),
     )
@@ -87,7 +88,7 @@ async function firVisibility(
   const [row] = await db
     .select({ visibility: caseDiaries.visibility })
     .from(caseDiaries)
-    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, firNo)))
+    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, normalizeFirNo(firNo))))
     .limit(1);
 
   return row?.visibility ?? null;
@@ -200,13 +201,16 @@ export async function createCaseDiary(
   context: RequestContext,
 ): Promise<CaseDiaryRow> {
   await assertCaseTypeUsable(input.caseTypeId);
-  const caseDiaryNo = input.caseDiaryNo ?? await generateNextCaseDiaryNo(user.id, input.firNo);
-  await assertCaseDiaryNoAvailable(user.id, input.firNo, caseDiaryNo, null);
+  // Canonicalize the FIR up front so `196/25` and `196/2025` become one मुकदमा
+  // everywhere: CD numbering, uniqueness, visibility inheritance, and storage.
+  const firNo = normalizeFirNo(input.firNo);
+  const caseDiaryNo = input.caseDiaryNo ?? await generateNextCaseDiaryNo(user.id, firNo);
+  await assertCaseDiaryNoAvailable(user.id, firNo, caseDiaryNo, null);
 
   // A whole FIR (मुकदमा) shares one visibility — the step-up flow flips every diary
   // in the FIR together. So a new diary added to an existing FIR inherits that FIR's
   // current visibility; a brand-new investigation uses the caller's choice (default PUBLIC).
-  const visibility = input.visibility ?? (await firVisibility(user.id, input.firNo)) ?? "PUBLIC";
+  const visibility = input.visibility ?? (await firVisibility(user.id, firNo)) ?? "PUBLIC";
 
   const [diary] = await db
     .insert(caseDiaries)
@@ -216,7 +220,7 @@ export async function createCaseDiary(
       caseTypeId: input.caseTypeId,
       caseDiaryNo,
       caseDiaryDate: input.caseDiaryDate ?? null,
-      firNo: input.firNo,
+      firNo,
       underSection: input.underSection,
       policeStation: input.policeStation,
       incidentDateTime: input.incidentDateTime,
@@ -272,7 +276,9 @@ export async function listCaseDiaries(
   }
 
   const conditions = [isNull(caseDiaries.deletedAt), scopeCondition];
-  if (query.firNo) conditions.push(ilike(caseDiaries.firNo, `%${query.firNo}%`));
+  // Canonicalize a full FIR-number filter (196/25 → 196/2025) so both spellings
+  // resolve to the same मुकदमा; partial fragments (no year) pass through untouched.
+  if (query.firNo) conditions.push(ilike(caseDiaries.firNo, `%${normalizeFirNo(query.firNo)}%`));
 
   return db
     .select()
@@ -345,9 +351,11 @@ export async function updateCaseDiary(
   if (input.caseTypeId !== undefined) await assertCaseTypeUsable(input.caseTypeId);
 
   // CD No. uniqueness is per-FIR, so re-validate whenever *either* the CD No. or
-  // the FIR changes (moving a diary to another FIR could collide there too).
+  // the FIR changes (moving a diary to another FIR could collide there too). The
+  // FIR is canonicalized so `196/25` and `196/2025` resolve to the same मुकदमा.
   const nextCaseDiaryNo = input.caseDiaryNo?.trim();
-  const effectiveFirNo = input.firNo ?? diary.firNo;
+  const nextFirNo = input.firNo !== undefined ? normalizeFirNo(input.firNo) : undefined;
+  const effectiveFirNo = nextFirNo ?? diary.firNo;
   const effectiveCaseDiaryNo = nextCaseDiaryNo || diary.caseDiaryNo;
   if (effectiveFirNo !== diary.firNo || effectiveCaseDiaryNo !== diary.caseDiaryNo) {
     await assertCaseDiaryNoAvailable(user.id, effectiveFirNo, effectiveCaseDiaryNo, diary.id);
@@ -356,7 +364,7 @@ export async function updateCaseDiary(
   const updates: Partial<typeof caseDiaries.$inferInsert> = { updatedAt: new Date() };
   if (nextCaseDiaryNo) updates.caseDiaryNo = nextCaseDiaryNo;
   if (input.caseTypeId !== undefined) updates.caseTypeId = input.caseTypeId;
-  if (input.firNo !== undefined) updates.firNo = input.firNo;
+  if (nextFirNo !== undefined) updates.firNo = nextFirNo;
   if (input.underSection !== undefined) updates.underSection = input.underSection;
   if (input.policeStation !== undefined) updates.policeStation = input.policeStation;
   if (input.incidentDateTime !== undefined) updates.incidentDateTime = input.incidentDateTime;

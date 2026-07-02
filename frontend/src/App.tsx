@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { AboutPortalPage } from "@/pages/AboutPortalPage";
 import { AdminPage } from "@/pages/AdminPage";
 import { DiaryEditorPage } from "@/pages/DiaryEditorPage";
 import { HomePage } from "@/pages/HomePage";
@@ -42,6 +43,7 @@ export default function App() {
                 <Route path="/diary/:id" element={<DiaryEditorRoute />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/about" element={<AboutPortalPage />} />
 
                 <Route element={<RequireRole role="ADMIN" />}>
                   <Route path="/admin" element={<AdminPage />} />

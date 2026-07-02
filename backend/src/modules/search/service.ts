@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { caseDiaries, caseTypes } from "../../db/schema.js";
 import type { AuthenticatedUser } from "../../middleware/authGuard.js";
@@ -31,6 +31,21 @@ const SEARCH_VECTOR = sql`(
 )`;
 
 /**
+ * FIR numbers are written as `NNN/YY` or `NNN/YYYY`, where the 2-digit and
+ * 4-digit year denote the same 21st-century year (e.g. `196/25` ≡ `196/2025`).
+ * When the query looks like an FIR number, return every equivalent spelling so
+ * search matches them interchangeably; otherwise return null (not an FIR query).
+ */
+export function firNoSearchVariants(query: string): string[] | null {
+  const match = /^(\d+)\s*\/\s*(\d{2}|\d{4})$/.exec(query.trim());
+  if (!match) return null;
+  const [, prefix, year] = match;
+  const yy = year!.length === 2 ? year! : year!.slice(-2);
+  const yyyy = year!.length === 4 ? year! : `20${year!}`;
+  return Array.from(new Set([`${prefix}/${yy}`, `${prefix}/${yyyy}`]));
+}
+
+/**
  * D6: isolated behind an interface so controllers/UI depend only on
  * `searchService` — a Phase-2 embedding-backed implementation becomes a
  * one-line swap of the exported singleton, never a rewrite of call sites.
@@ -43,6 +58,14 @@ class KeywordSearchService implements SearchService {
   async search(user: AuthenticatedUser, query: string): Promise<CaseDiaryRow[]> {
     const scopeCondition = await buildBrowseScopeCondition(user);
 
+    // FTS over the indexed fields, OR — for FIR-number queries — an exact match
+    // on either the 2-digit or 4-digit year spelling of the same FIR.
+    const ftsCondition = sql`${SEARCH_VECTOR} @@ websearch_to_tsquery('english', ${query})`;
+    const firVariants = firNoSearchVariants(query);
+    const matchCondition = firVariants
+      ? or(ftsCondition, ...firVariants.map((variant) => eq(caseDiaries.firNo, variant)))
+      : ftsCondition;
+
     const rows = await db
       .select({ caseDiary: caseDiaries })
       .from(caseDiaries)
@@ -51,7 +74,7 @@ class KeywordSearchService implements SearchService {
         and(
           isNull(caseDiaries.deletedAt),
           scopeCondition,
-          sql`${SEARCH_VECTOR} @@ websearch_to_tsquery('english', ${query})`,
+          matchCondition,
         ),
       )
       .orderBy(desc(caseDiaries.updatedAt))

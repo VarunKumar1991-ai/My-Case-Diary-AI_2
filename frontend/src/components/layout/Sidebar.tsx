@@ -2,6 +2,7 @@ import {
   FilePenLineIcon,
   FolderOpenIcon,
   HomeIcon,
+  InfoIcon,
   LogOutIcon,
   SettingsIcon,
   ShieldIcon,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import { NewInvestigationDialog } from "@/components/layout/NewInvestigationDialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
@@ -59,6 +61,7 @@ export function Sidebar() {
           <HomeIcon className="size-4" />
           {strings.nav.home}
         </NavLink>
+        <NewInvestigationDialog />
         <NavLink to="/diary/new" className={navLinkClasses}>
           <FilePenLineIcon className="size-4" />
           {strings.nav.addEditDiary}
@@ -74,6 +77,10 @@ export function Sidebar() {
         <NavLink to="/settings" className={navLinkClasses}>
           <SettingsIcon className="size-4" />
           {strings.nav.settings}
+        </NavLink>
+        <NavLink to="/about" className={navLinkClasses}>
+          <InfoIcon className="size-4" />
+          {strings.nav.aboutPortal}
         </NavLink>
         {user.role === "ADMIN" && (
           <NavLink to="/admin" className={navLinkClasses}>

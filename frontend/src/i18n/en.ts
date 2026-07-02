@@ -22,6 +22,7 @@ export const en = {
     viewDiaries: "View Case Diaries",
     profile: "Profile",
     settings: "Settings",
+    aboutPortal: "About this Portal",
     admin: "Admin",
     logout: "Logout",
   },
@@ -188,6 +189,28 @@ export const en = {
     sessionHeading: "Session",
     sessionBody: "End your current session on this device. You'll need a fresh OTP to sign back in.",
     signOut: "Sign out",
+  },
+  about: {
+    heading: "About this Portal",
+    subheading: "A pre-submission drafting and collaboration layer for investigating officers.",
+    whatHeading: "What this is",
+    whatBody:
+      "This platform is a pre-submission drafting & collaboration layer — a workspace where officers prepare and refine case-diary entries before they are formally entered into CCTNS. It is not, and must never be treated as, an official record system or a replacement for CCTNS.",
+    whyHeading: "Why this exists",
+    whyPoints: [
+      "CCTNS terminals are fixed-location, creating bottlenecks for officers who need to draft diaries in the field.",
+      "Officers currently draft notes informally (paper, personal devices) before manual CCTNS entry — leading to errors, rework, and lost time.",
+      "This platform bridges that gap with a fast, low-friction drafting space that reduces errors before official submission.",
+    ],
+    whoHeading: "Who it is for",
+    whoBody:
+      "Government officials with varying levels of technical literacy. The interface is deliberately simple, fast, and low-friction — passwordless sign-in, autosave, and minimal clicks — so the tool stays out of the way of the work.",
+    aiHeading: "AI-assisted investigation",
+    aiBody:
+      "The portal is equipped with AI-driven features designed to support investigators in carrying out investigations more effectively — surfacing similar past cases and assisting with drafting.",
+    disclaimerHeading: "Important",
+    disclaimerBody:
+      "This is a drafting aid only. It does not submit to, sync with, or stand in for CCTNS. The authoritative record always remains the official CCTNS entry.",
   },
   admin: {
     heading: "Admin",
