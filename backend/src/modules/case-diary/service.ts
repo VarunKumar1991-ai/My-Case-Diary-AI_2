@@ -79,6 +79,20 @@ async function assertCaseDiaryNoAvailable(
   }
 }
 
+/** The visibility an FIR already carries for this officer, or `null` if it has no diaries yet. */
+async function firVisibility(
+  ownerId: string,
+  firNo: string,
+): Promise<"PRIVATE" | "PUBLIC" | null> {
+  const [row] = await db
+    .select({ visibility: caseDiaries.visibility })
+    .from(caseDiaries)
+    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, firNo)))
+    .limit(1);
+
+  return row?.visibility ?? null;
+}
+
 async function assertCaseTypeUsable(caseTypeId: string): Promise<void> {
   const [caseType] = await db
     .select({ id: caseTypes.id, isActive: caseTypes.isActive })
@@ -189,6 +203,11 @@ export async function createCaseDiary(
   const caseDiaryNo = input.caseDiaryNo ?? await generateNextCaseDiaryNo(user.id, input.firNo);
   await assertCaseDiaryNoAvailable(user.id, input.firNo, caseDiaryNo, null);
 
+  // A whole FIR (मुकदमा) shares one visibility — the step-up flow flips every diary
+  // in the FIR together. So a new diary added to an existing FIR inherits that FIR's
+  // current visibility; a brand-new investigation uses the caller's choice (default PUBLIC).
+  const visibility = input.visibility ?? (await firVisibility(user.id, input.firNo)) ?? "PUBLIC";
+
   const [diary] = await db
     .insert(caseDiaries)
     .values({
@@ -206,7 +225,7 @@ export async function createCaseDiary(
       plaintiffName: input.plaintiffName,
       accusedName: input.accusedName,
       body: input.body ?? {},
-      visibility: "PUBLIC",
+      visibility,
       status: "draft",
     })
     .returning();

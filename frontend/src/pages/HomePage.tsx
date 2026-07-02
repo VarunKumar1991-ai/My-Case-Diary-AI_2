@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { caseDiariesApi, type CaseDiary } from "@/apis/caseDiaries";
+import { caseDiariesApi, type CaseDiary, type DiaryVisibility } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOption } from "@/apis/lookups";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,7 @@ interface InvForm {
   placeOfIncidence: string;
   plaintiffName: string;
   accusedName: string;
+  visibility: DiaryVisibility;
 }
 
 const EMPTY_INV: InvForm = {
@@ -60,6 +62,7 @@ const EMPTY_INV: InvForm = {
   placeOfIncidence: "",
   plaintiffName: "",
   accusedName: "",
+  visibility: "PUBLIC",
 };
 
 /**
@@ -146,6 +149,7 @@ export function HomePage() {
         placeOfIncidence: invForm.placeOfIncidence.trim(),
         plaintiffName: invForm.plaintiffName.trim(),
         accusedName: invForm.accusedName.trim(),
+        visibility: invForm.visibility,
         body: {},
       });
       setInvOpen(false);
@@ -330,12 +334,14 @@ export function HomePage() {
               </div>
 
               {/* Accused Name */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="inv-accused">{strings.diary.fields.accusedName}</Label>
-                <Input
+                <Textarea
                   id="inv-accused"
                   value={invForm.accusedName}
                   onChange={(e) => setInv("accusedName", e.target.value)}
+                  maxLength={10000}
+                  rows={3}
                   required
                 />
               </div>
@@ -346,7 +352,25 @@ export function HomePage() {
             )}
           </form>
 
-          <DialogFooter>
+          <DialogFooter className="sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="inv-visibility" className="whitespace-nowrap">
+                {strings.home.visibilityLabel}
+              </Label>
+              <Select
+                value={invForm.visibility}
+                onValueChange={(v) => setInv("visibility", v as DiaryVisibility)}
+              >
+                <SelectTrigger id="inv-visibility" className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC">{strings.diary.public}</SelectItem>
+                  <SelectItem value="PRIVATE">{strings.diary.private}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -364,6 +388,7 @@ export function HomePage() {
                 ? strings.home.startingInvestigation
                 : strings.home.startInvestigation}
             </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

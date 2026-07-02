@@ -93,6 +93,7 @@ export const en = {
     startInvestigation: "Start investigation",
     startingInvestigation: "Starting…",
     investigationCdDate: "CD Date",
+    visibilityLabel: "Visibility",
     noResults: "No case diaries matched your search. Try a different term, or start a new one.",
   },
   diary: {
@@ -117,7 +118,7 @@ export const en = {
   editor: {
     newHeading: "New case diary",
     firDiariesHeading: "Diaries for this FIR",
-    newDiaryForFir: "New diary",
+    newDiaryForFir: "Next Diary",
     noFirDiaries: "No other diaries yet for this FIR.",
     saveBeforeFir: "Diaries for this FIR will appear here once you create the entry.",
     notYetSaved: "This becomes available once the case diary is created.",
@@ -125,6 +126,9 @@ export const en = {
     creating: "Creating…",
     selectCaseType: "Select a case type",
     bodyPlaceholder: "Start writing the case diary entry…",
+    fontSize: "Font size",
+    decreaseFont: "Decrease font size",
+    increaseFont: "Increase font size",
     similarCasesHeading: "Similar past cases",
     similarCasesHint: "Read-only references — ranked by case type and shared keywords.",
     noSimilarCases: "No similar cases found yet.",

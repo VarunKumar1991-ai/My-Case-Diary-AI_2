@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { PlusIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { MinusIcon, PlusIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { type JSONContent, useEditor, EditorContent } from "@tiptap/react";
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -40,6 +41,28 @@ import { useStrings } from "@/i18n";
 import { cn, formatDateTime, toDateDisplay } from "@/lib/utils";
 
 const SAVE_DEBOUNCE_MS = 1000;
+
+// Diary Body font-size control (MS-Word-style): a dropdown of common sizes plus
+// −/+ steppers. The chosen size applies uniformly to the whole body (set on the
+// editor's root element) and is persisted inside the body JSON under `_fontSize`.
+const DEFAULT_FONT_SIZE = 14;
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 72;
+const FONT_SIZE_OPTIONS = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+const FONT_SIZE_KEY = "_fontSize";
+
+/** Reads a persisted `_fontSize` off a diary body (if present), else the default. */
+function readFontSize(body: unknown): number {
+  const raw = (body as Record<string, unknown> | null)?.[FONT_SIZE_KEY];
+  return typeof raw === "number" && raw >= MIN_FONT_SIZE && raw <= MAX_FONT_SIZE
+    ? raw
+    : DEFAULT_FONT_SIZE;
+}
+
+/** Merges the current font size into the body JSON so it round-trips with the document. */
+function bodyWithFontSize(doc: JSONContent, size: number): Record<string, unknown> {
+  return { ...doc, [FONT_SIZE_KEY]: size };
+}
 
 const EDITOR_CONTENT_CLASS =
   "min-h-[40svh] font-mono text-sm leading-relaxed text-foreground focus:outline-none " +
@@ -186,9 +209,19 @@ function saveStatusLabel(status: SaveStatus, strings: Strings): string | null {
   }
 }
 
-function HeaderField({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
+function HeaderField({
+  label,
+  htmlFor,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
@@ -248,6 +281,7 @@ export function DiaryEditorPage() {
   const [similar, setSimilar] = useState<CaseDiary[] | null>(null);
 
   const [editorEmpty, setEditorEmpty] = useState(true);
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -263,7 +297,7 @@ export function DiaryEditorPage() {
     if (!diary || !editor) return;
     setSaveStatus("saving");
     caseDiariesApi
-      .update(diary.id, { ...buildHeaderPayload(headerRef.current), body: editor.getJSON() })
+      .update(diary.id, { ...buildHeaderPayload(headerRef.current), body: bodyWithFontSize(editor.getJSON(), fontSize) })
       .then(({ caseDiary }) => {
         setDiary(caseDiary);
         setSaveStatus("saved");
@@ -289,6 +323,13 @@ export function DiaryEditorPage() {
     scheduleAutosave();
   }
 
+  /** Set the Diary Body font size (clamped) and persist it via autosave. */
+  function applyFontSize(next: number) {
+    const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(next)));
+    setFontSize(clamped);
+    scheduleAutosave();
+  }
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: "",
@@ -305,6 +346,13 @@ export function DiaryEditorPage() {
       scheduleAutosave();
     },
   });
+
+  // Apply the chosen font size uniformly to the whole body (inline style on the
+  // ProseMirror root overrides the base `text-sm` class).
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dom.style.fontSize = `${fontSize}px`;
+  }, [editor, fontSize]);
 
   // ── Auto-fill new diary header from the latest existing diary ───────────
   // Only runs when the left-panel "New diary" button was clicked
@@ -408,6 +456,7 @@ export function DiaryEditorPage() {
     const content = isProseMirrorDoc(diary.body) ? diary.body : "";
     editor.commands.setContent(content, { emitUpdate: false });
     setEditorEmpty(editor.isEmpty);
+    setFontSize(readFontSize(diary.body));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diary?.id, editor]);
 
@@ -466,7 +515,7 @@ export function DiaryEditorPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      const { caseDiary } = await caseDiariesApi.create({ ...buildHeaderPayload(header), body: editor.getJSON() });
+      const { caseDiary } = await caseDiariesApi.create({ ...buildHeaderPayload(header), body: bodyWithFontSize(editor.getJSON(), fontSize) });
       navigate(`/diary/${caseDiary.id}`, { replace: true });
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
@@ -760,12 +809,13 @@ export function DiaryEditorPage() {
               />
             </HeaderField>
 
-            <HeaderField label={strings.diary.fields.accusedName} htmlFor="accusedName">
-              <Input
+            <HeaderField label={strings.diary.fields.accusedName} htmlFor="accusedName" className="sm:col-span-2">
+              <Textarea
                 id="accusedName"
                 value={header.accusedName}
                 onChange={(e) => updateHeader("accusedName", e.target.value)}
-                maxLength={200}
+                maxLength={10000}
+                rows={4}
                 required={isNew}
               />
             </HeaderField>
@@ -781,7 +831,54 @@ export function DiaryEditorPage() {
           </form>
 
           <div className="flex flex-1 flex-col p-6">
-            <Label className="mb-2">{strings.diary.fields.body}</Label>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <Label>{strings.diary.fields.body}</Label>
+              {/* MS-Word-style font-size control — applies uniformly to the whole body. */}
+              <div className="flex items-center gap-1">
+                <span className="mr-1 text-xs text-muted-foreground">{strings.editor.fontSize}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => applyFontSize(fontSize - 1)}
+                  disabled={!editor || fontSize <= MIN_FONT_SIZE}
+                  aria-label={strings.editor.decreaseFont}
+                >
+                  <MinusIcon className="size-4" />
+                </Button>
+                <Select
+                  value={String(fontSize)}
+                  onValueChange={(v) => applyFontSize(Number(v))}
+                  disabled={!editor}
+                >
+                  <SelectTrigger className="h-8 w-[4.5rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(FONT_SIZE_OPTIONS.includes(fontSize)
+                      ? FONT_SIZE_OPTIONS
+                      : [...FONT_SIZE_OPTIONS, fontSize].sort((a, b) => a - b)
+                    ).map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => applyFontSize(fontSize + 1)}
+                  disabled={!editor || fontSize >= MAX_FONT_SIZE}
+                  aria-label={strings.editor.increaseFont}
+                >
+                  <PlusIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
             <div className="relative flex-1 rounded-md border border-input bg-input/40 p-4">
               {editorEmpty && (
                 <p className="pointer-events-none absolute top-4 left-4 font-mono text-sm text-muted-foreground select-none">

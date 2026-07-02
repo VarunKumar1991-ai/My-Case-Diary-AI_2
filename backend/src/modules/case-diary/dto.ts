@@ -12,7 +12,7 @@ const diaryCore = {
   firRegistrationDateTime: z.coerce.date(),
   placeOfIncidence: z.string().trim().min(1, "Place of incidence is required").max(500),
   plaintiffName: z.string().trim().min(1, "Plaintiff name is required").max(200),
-  accusedName: z.string().trim().min(1, "Accused name is required").max(200),
+  accusedName: z.string().trim().min(1, "Accused name is required").max(10000),
 };
 
 const diaryCoreSchema = z.object(diaryCore);
@@ -21,6 +21,9 @@ export const createCaseDiarySchema = diaryCoreSchema.extend({
   caseDiaryNo: z.string().trim().min(1).max(32).optional(),
   caseDiaryDate: z.coerce.date().optional(),
   body: bodySchema.optional(),
+  // Officer picks visibility when starting the investigation. PRIVATE is a
+  // narrowing (no OTP — mirrors the step-up model, where only PRIVATE→PUBLIC is gated).
+  visibility: z.enum(["PRIVATE", "PUBLIC"]).optional(),
 });
 
 export const updateCaseDiarySchema = diaryCoreSchema

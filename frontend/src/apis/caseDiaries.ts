@@ -51,6 +51,8 @@ export interface CreateCaseDiaryInput extends CaseDiaryHeaderInput {
   caseDiaryNo?: string;
   caseDiaryDate?: string;
   body?: Record<string, unknown>;
+  /** Defaults to PUBLIC server-side; PRIVATE needs no OTP at creation (it's a narrowing). */
+  visibility?: DiaryVisibility;
 }
 
 /** Mirrors `updateCaseDiarySchema` — every field optional; PATCH-like partial `PUT`. */
