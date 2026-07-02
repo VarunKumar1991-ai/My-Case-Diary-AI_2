@@ -31,16 +31,20 @@ const CASE_DIARY_NO_PATTERN = /^CD-(\d+)$/;
 const GENERIC_OTP_FAILURE = "The code is incorrect or has expired. Please request a new one.";
 
 /**
- * `caseDiaryNo` is a per-officer sequence (D4): we look at the officer's existing
- * numbers, take the highest `CD-NNN` suffix we can parse, and increment. Because
- * the number is officer-editable (§6.2), we tolerate rows that no longer match
- * the pattern — they simply don't influence the next default.
+ * `caseDiaryNo` is a per-FIR sequence: Case Diary No. is a subset of the FIR
+ * number (मुकदमा), so every new investigation starts its own `CD-001` run. We
+ * look at the officer's existing numbers *for that FIR*, take the highest
+ * `CD-NNN` suffix we can parse, and increment. A brand-new FIR (no matching
+ * rows) therefore yields `CD-001`. Because the number is officer-editable
+ * (§6.2), we tolerate rows that no longer match the pattern — they simply don't
+ * influence the next default. An empty `firNo` (nothing entered yet) is treated
+ * as a fresh investigation and returns `CD-001`.
  */
-export async function generateNextCaseDiaryNo(ownerId: string): Promise<string> {
+export async function generateNextCaseDiaryNo(ownerId: string, firNo: string): Promise<string> {
   const rows = await db
     .select({ caseDiaryNo: caseDiaries.caseDiaryNo })
     .from(caseDiaries)
-    .where(eq(caseDiaries.ownerId, ownerId));
+    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.firNo, firNo)));
 
   let highest = 0;
   for (const row of rows) {
@@ -54,17 +58,24 @@ export async function generateNextCaseDiaryNo(ownerId: string): Promise<string> 
 
 async function assertCaseDiaryNoAvailable(
   ownerId: string,
+  firNo: string,
   caseDiaryNo: string,
   excludeDiaryId: string | null,
 ): Promise<void> {
   const [existing] = await db
     .select({ id: caseDiaries.id })
     .from(caseDiaries)
-    .where(and(eq(caseDiaries.ownerId, ownerId), eq(caseDiaries.caseDiaryNo, caseDiaryNo)))
+    .where(
+      and(
+        eq(caseDiaries.ownerId, ownerId),
+        eq(caseDiaries.firNo, firNo),
+        eq(caseDiaries.caseDiaryNo, caseDiaryNo),
+      ),
+    )
     .limit(1);
 
   if (existing && existing.id !== excludeDiaryId) {
-    throw new ConflictError(`You already have a case diary numbered "${caseDiaryNo}"`);
+    throw new ConflictError(`This FIR already has a case diary numbered "${caseDiaryNo}"`);
   }
 }
 
@@ -175,7 +186,8 @@ export async function createCaseDiary(
   context: RequestContext,
 ): Promise<CaseDiaryRow> {
   await assertCaseTypeUsable(input.caseTypeId);
-  const caseDiaryNo = await generateNextCaseDiaryNo(user.id);
+  const caseDiaryNo = input.caseDiaryNo ?? await generateNextCaseDiaryNo(user.id, input.firNo);
+  await assertCaseDiaryNoAvailable(user.id, input.firNo, caseDiaryNo, null);
 
   const [diary] = await db
     .insert(caseDiaries)
@@ -184,6 +196,7 @@ export async function createCaseDiary(
       ownerId: user.id,
       caseTypeId: input.caseTypeId,
       caseDiaryNo,
+      caseDiaryDate: input.caseDiaryDate ?? null,
       firNo: input.firNo,
       underSection: input.underSection,
       policeStation: input.policeStation,
@@ -193,7 +206,7 @@ export async function createCaseDiary(
       plaintiffName: input.plaintiffName,
       accusedName: input.accusedName,
       body: input.body ?? {},
-      visibility: "PRIVATE",
+      visibility: "PUBLIC",
       status: "draft",
     })
     .returning();
@@ -312,9 +325,13 @@ export async function updateCaseDiary(
 
   if (input.caseTypeId !== undefined) await assertCaseTypeUsable(input.caseTypeId);
 
+  // CD No. uniqueness is per-FIR, so re-validate whenever *either* the CD No. or
+  // the FIR changes (moving a diary to another FIR could collide there too).
   const nextCaseDiaryNo = input.caseDiaryNo?.trim();
-  if (nextCaseDiaryNo && nextCaseDiaryNo !== diary.caseDiaryNo) {
-    await assertCaseDiaryNoAvailable(user.id, nextCaseDiaryNo, diary.id);
+  const effectiveFirNo = input.firNo ?? diary.firNo;
+  const effectiveCaseDiaryNo = nextCaseDiaryNo || diary.caseDiaryNo;
+  if (effectiveFirNo !== diary.firNo || effectiveCaseDiaryNo !== diary.caseDiaryNo) {
+    await assertCaseDiaryNoAvailable(user.id, effectiveFirNo, effectiveCaseDiaryNo, diary.id);
   }
 
   const updates: Partial<typeof caseDiaries.$inferInsert> = { updatedAt: new Date() };
@@ -328,6 +345,7 @@ export async function updateCaseDiary(
   if (input.placeOfIncidence !== undefined) updates.placeOfIncidence = input.placeOfIncidence;
   if (input.plaintiffName !== undefined) updates.plaintiffName = input.plaintiffName;
   if (input.accusedName !== undefined) updates.accusedName = input.accusedName;
+  if (input.caseDiaryDate !== undefined) updates.caseDiaryDate = input.caseDiaryDate;
   if (input.body !== undefined) updates.body = input.body;
   if (input.status !== undefined) updates.status = input.status;
 
@@ -390,6 +408,9 @@ function ownerIdentifier(user: AuthenticatedUser): string {
   return identifier;
 }
 
+// Visibility changes are FIR-scoped: toggling one diary's FIR makes every
+// diary under that FIR number PUBLIC / PRIVATE together.
+
 export async function requestVisibilityChangeOtp(
   user: AuthenticatedUser,
   diaryId: string,
@@ -398,15 +419,29 @@ export async function requestVisibilityChangeOtp(
 ): Promise<void> {
   const diary = await loadDiaryOrThrow(diaryId);
   if (diary.ownerId !== user.id) throw new ForbiddenError("Only the owning officer can change visibility");
-  if (diary.visibility === "PUBLIC") throw new ConflictError("This case diary is already public");
+
+  // Count PRIVATE diaries in this FIR owned by the same officer.
+  const firDiaries = await db
+    .select({ visibility: caseDiaries.visibility })
+    .from(caseDiaries)
+    .where(
+      and(
+        eq(caseDiaries.firNo, diary.firNo),
+        eq(caseDiaries.ownerId, user.id),
+        isNull(caseDiaries.deletedAt),
+      ),
+    );
+
+  const hasPrivate = firDiaries.some((d) => d.visibility === "PRIVATE");
+  if (!hasPrivate) throw new ConflictError("All case diaries for this FIR are already public");
 
   await issueOtpChallenge(ownerIdentifier(user), "visibility-change");
   await recordAuditEntry({
     actorId: user.id,
-    action: "case_diary.visibility_otp_requested",
+    action: "case_diary.fir_visibility_otp_requested",
     resourceType: "case_diary",
     resourceId: diary.id,
-    metadata: { from: diary.visibility, to: "PUBLIC" },
+    metadata: { firNo: diary.firNo, to: "PUBLIC" },
     ip: context.ip,
     userAgent: context.userAgent,
   });
@@ -420,23 +455,35 @@ export async function confirmVisibilityChange(
 ): Promise<CaseDiaryRow> {
   const diary = await loadDiaryOrThrow(diaryId);
   if (diary.ownerId !== user.id) throw new ForbiddenError("Only the owning officer can change visibility");
-  if (diary.visibility === "PUBLIC") throw new ConflictError("This case diary is already public");
 
   await consumeOtpChallenge(ownerIdentifier(user), "visibility-change", input.code, GENERIC_OTP_FAILURE);
 
-  const [updated] = await db
+  // Update ALL diaries in this FIR (owned by this officer) to PUBLIC.
+  await db
     .update(caseDiaries)
     .set({ visibility: "PUBLIC", updatedAt: new Date() })
+    .where(
+      and(
+        eq(caseDiaries.firNo, diary.firNo),
+        eq(caseDiaries.ownerId, user.id),
+        isNull(caseDiaries.deletedAt),
+      ),
+    );
+
+  // Return the diary that was passed in (now PUBLIC).
+  const [updated] = await db
+    .select()
+    .from(caseDiaries)
     .where(eq(caseDiaries.id, diary.id))
-    .returning();
+    .limit(1);
   if (!updated) throw new NotFoundError("Case diary not found");
 
   await recordAuditEntry({
     actorId: user.id,
-    action: "case_diary.visibility_changed",
+    action: "case_diary.fir_visibility_changed",
     resourceType: "case_diary",
-    resourceId: updated.id,
-    metadata: { from: "PRIVATE", to: "PUBLIC" },
+    resourceId: diary.id,
+    metadata: { firNo: diary.firNo, from: "PRIVATE", to: "PUBLIC" },
     ip: context.ip,
     userAgent: context.userAgent,
   });

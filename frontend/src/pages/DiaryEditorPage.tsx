@@ -37,7 +37,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { type Strings } from "@/i18n/en";
 import { useStrings } from "@/i18n";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime, toDateDisplay } from "@/lib/utils";
 
 const SAVE_DEBOUNCE_MS = 1000;
 
@@ -53,6 +53,9 @@ const EDITOR_CONTENT_CLASS =
 type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
 interface HeaderFormState {
+  cdNo: string;
+  /** Stored as YYYY-MM-DD — converted to/from ISO at the input boundary. */
+  cdDate: string;
   caseTypeId: string;
   firNo: string;
   underSection: string;
@@ -66,6 +69,8 @@ interface HeaderFormState {
 }
 
 const EMPTY_HEADER: HeaderFormState = {
+  cdNo: "",
+  cdDate: "",
   caseTypeId: "",
   firNo: "",
   underSection: "",
@@ -77,8 +82,26 @@ const EMPTY_HEADER: HeaderFormState = {
   accusedName: "",
 };
 
+function toDateValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function fromDateValue(value: string): string {
+  if (!value) return "";
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+  if (!m) return "";
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
 function toHeaderForm(diary: CaseDiary): HeaderFormState {
   return {
+    cdNo: diary.caseDiaryNo,
+    cdDate: toDateValue(diary.caseDiaryDate),
     caseTypeId: diary.caseTypeId,
     firNo: diary.firNo,
     underSection: diary.underSection,
@@ -91,8 +114,10 @@ function toHeaderForm(diary: CaseDiary): HeaderFormState {
   };
 }
 
-function buildHeaderPayload(header: HeaderFormState): CaseDiaryHeaderInput {
+function buildHeaderPayload(header: HeaderFormState): CaseDiaryHeaderInput & { caseDiaryNo?: string; caseDiaryDate?: string } {
   return {
+    caseDiaryNo: header.cdNo.trim() || undefined,
+    caseDiaryDate: fromDateValue(header.cdDate) || undefined,
     caseTypeId: header.caseTypeId,
     firNo: header.firNo.trim(),
     underSection: header.underSection.trim(),
@@ -106,7 +131,9 @@ function buildHeaderPayload(header: HeaderFormState): CaseDiaryHeaderInput {
 }
 
 function isHeaderComplete(header: HeaderFormState): boolean {
-  return Object.values(header).every((value) => value.trim().length > 0);
+  // cdDate is optional; cdNo is auto-filled so we exclude them from the "complete" check
+  const { cdDate: _cdDate, cdNo: _cdNo, ...required } = header;
+  return Object.values(required).every((value) => value.trim().length > 0);
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -114,13 +141,15 @@ function toDatetimeLocalValue(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function fromDatetimeLocalValue(value: string): string {
   if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!m) return "";
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]));
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
 function isProseMirrorDoc(value: unknown): value is JSONContent {
@@ -168,6 +197,7 @@ function HeaderField({ label, htmlFor, children }: { label: string; htmlFor: str
 
 interface PrefillState {
   prefill?: Partial<HeaderFormState>;
+  prefillFromLatest?: boolean;
 }
 
 /**
@@ -187,6 +217,7 @@ export function DiaryEditorPage() {
 
   const isNew = !id;
   const prefill = (location.state as PrefillState | null)?.prefill;
+  const prefillFromLatest = (location.state as PrefillState | null)?.prefillFromLatest ?? false;
 
   const [caseTypes, setCaseTypes] = useState<LookupOption[]>([]);
   const [diary, setDiary] = useState<CaseDiary | null>(null);
@@ -216,6 +247,8 @@ export function DiaryEditorPage() {
   const [firDiaries, setFirDiaries] = useState<CaseDiary[] | null>(null);
   const [similar, setSimilar] = useState<CaseDiary[] | null>(null);
 
+  const [editorEmpty, setEditorEmpty] = useState(true);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -224,6 +257,7 @@ export function DiaryEditorPage() {
   const [visibilityCode, setVisibilityCode] = useState("");
   const [visibilitySubmitting, setVisibilitySubmitting] = useState(false);
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
+  const [alreadyPublicOpen, setAlreadyPublicOpen] = useState(false);
 
   function persist() {
     if (!diary || !editor) return;
@@ -266,8 +300,55 @@ export function DiaryEditorPage() {
         "aria-label": strings.diary.fields.body,
       },
     },
-    onUpdate: () => scheduleAutosave(),
+    onUpdate: ({ editor: e }) => {
+      setEditorEmpty(e.isEmpty);
+      scheduleAutosave();
+    },
   });
+
+  // ── Auto-fill new diary header from the latest existing diary ───────────
+  // Only runs when the left-panel "New diary" button was clicked
+  // (it sets prefillFromLatest=true in location.state).
+  // Sidebar and HomePage navigate without that flag → blank form.
+  useEffect(() => {
+    if (!isNew || !prefillFromLatest) return;
+    let cancelled = false;
+    caseDiariesApi.list({ scope: "mine" })
+      .then(({ caseDiaries }) => {
+        if (cancelled || caseDiaries.length === 0) return;
+        const latest = caseDiaries[0]!;
+        setHeader((prev) => ({
+          ...prev,
+          caseTypeId:             prev.caseTypeId             || latest.caseTypeId,
+          firNo:                  prev.firNo                  || latest.firNo,
+          underSection:           prev.underSection           || latest.underSection,
+          policeStation:          prev.policeStation          || latest.policeStation,
+          incidentDateTime:       prev.incidentDateTime       || latest.incidentDateTime,
+          firRegistrationDateTime:prev.firRegistrationDateTime|| latest.firRegistrationDateTime,
+          placeOfIncidence:       prev.placeOfIncidence       || latest.placeOfIncidence,
+          plaintiffName:          prev.plaintiffName          || latest.plaintiffName,
+          accusedName:            prev.accusedName            || latest.accusedName,
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, prefillFromLatest]);
+
+  // ── Auto-fill next CD No for new diaries ─────────────────────────────────
+  // CD No. is per-FIR: a fresh investigation starts at CD-001, while a new diary
+  // for an existing FIR continues its sequence. Re-derive whenever the FIR changes.
+  useEffect(() => {
+    if (!isNew) return;
+    let cancelled = false;
+    caseDiariesApi.nextNo(header.firNo)
+      .then(({ caseDiaryNo }) => {
+        if (!cancelled) setHeader((prev) => ({ ...prev, cdNo: caseDiaryNo }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, header.firNo]);
 
   // ── Case-type taxonomy: Select options + id→name resolution everywhere else ──
   useEffect(() => {
@@ -326,6 +407,7 @@ export function DiaryEditorPage() {
     if (!diary || !editor) return;
     const content = isProseMirrorDoc(diary.body) ? diary.body : "";
     editor.commands.setContent(content, { emitUpdate: false });
+    setEditorEmpty(editor.isEmpty);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diary?.id, editor]);
 
@@ -394,14 +476,7 @@ export function DiaryEditorPage() {
   }
 
   function handleNewDiaryForFir() {
-    if (!diary) return;
-    const nextPrefill: Partial<HeaderFormState> = {
-      firNo: diary.firNo,
-      policeStation: diary.policeStation,
-      firRegistrationDateTime: diary.firRegistrationDateTime,
-      caseTypeId: diary.caseTypeId,
-    };
-    navigate("/diary/new", { state: { prefill: nextPrefill } satisfies PrefillState });
+    navigate("/diary/new", { state: { prefillFromLatest: true } satisfies PrefillState });
   }
 
   async function handleDelete() {
@@ -433,7 +508,12 @@ export function DiaryEditorPage() {
       setVisibilityOtpSent(true);
       toast.success(strings.editor.otpSent);
     } catch (err) {
-      setVisibilityError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+      if (err instanceof ApiError && err.status === 409) {
+        setVisibilityOpen(false);
+        setAlreadyPublicOpen(true);
+      } else {
+        setVisibilityError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+      }
     } finally {
       setVisibilitySubmitting(false);
     }
@@ -544,21 +624,23 @@ export function DiaryEditorPage() {
           )}
 
           <ul className="space-y-1">
-            {(firDiaries ?? []).map((entry) => (
-              <li key={entry.id}>
-                <Link
-                  to={`/diary/${entry.id}`}
-                  className={cn(
-                    "block rounded-md px-2.5 py-1.5 font-mono text-sm transition-colors",
-                    entry.id === diary?.id
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  )}
-                >
-                  {entry.caseDiaryNo}
-                </Link>
-              </li>
-            ))}
+            {[...(firDiaries ?? [])]
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .map((entry, index) => (
+                <li key={entry.id}>
+                  <Link
+                    to={`/diary/${entry.id}`}
+                    className={cn(
+                      "block rounded-md px-2.5 py-1.5 font-mono text-sm transition-colors",
+                      entry.id === diary?.id
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    )}
+                  >
+                    CD-{index + 1} दि0- {toDateDisplay(entry.caseDiaryDate)}
+                  </Link>
+                </li>
+              ))}
           </ul>
         </aside>
 
@@ -568,6 +650,27 @@ export function DiaryEditorPage() {
             className="grid grid-cols-1 gap-4 border-b border-border p-6 sm:grid-cols-2"
             onSubmit={isNew ? (event) => void handleCreate(event) : (event) => event.preventDefault()}
           >
+            <HeaderField label="CD No." htmlFor="cdNo">
+              <Input
+                id="cdNo"
+                value={header.cdNo}
+                onChange={(e) => updateHeader("cdNo", e.target.value)}
+                maxLength={32}
+                placeholder="Auto"
+              />
+            </HeaderField>
+
+            <HeaderField label="CD Date" htmlFor="cdDate">
+              <Input
+                id="cdDate"
+                value={header.cdDate}
+                onChange={(e) => updateHeader("cdDate", e.target.value)}
+                placeholder="dd/mm/yyyy"
+                maxLength={10}
+                inputMode="numeric"
+              />
+            </HeaderField>
+
             <HeaderField label={strings.diary.fields.caseType} htmlFor="caseTypeId">
               <Select value={header.caseTypeId} onValueChange={(value) => updateHeader("caseTypeId", value)}>
                 <SelectTrigger id="caseTypeId" className="w-full">
@@ -616,9 +719,11 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.incidentDateTime} htmlFor="incidentDateTime">
               <Input
                 id="incidentDateTime"
-                type="datetime-local"
                 value={toDatetimeLocalValue(header.incidentDateTime)}
                 onChange={(e) => updateHeader("incidentDateTime", fromDatetimeLocalValue(e.target.value))}
+                placeholder="dd/mm/yyyy HH:mm"
+                maxLength={16}
+                inputMode="numeric"
                 required={isNew}
               />
             </HeaderField>
@@ -626,9 +731,11 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.firRegistrationDateTime} htmlFor="firRegistrationDateTime">
               <Input
                 id="firRegistrationDateTime"
-                type="datetime-local"
                 value={toDatetimeLocalValue(header.firRegistrationDateTime)}
                 onChange={(e) => updateHeader("firRegistrationDateTime", fromDatetimeLocalValue(e.target.value))}
+                placeholder="dd/mm/yyyy HH:mm"
+                maxLength={16}
+                inputMode="numeric"
                 required={isNew}
               />
             </HeaderField>
@@ -676,7 +783,7 @@ export function DiaryEditorPage() {
           <div className="flex flex-1 flex-col p-6">
             <Label className="mb-2">{strings.diary.fields.body}</Label>
             <div className="relative flex-1 rounded-md border border-input bg-input/40 p-4">
-              {editor?.isEmpty && (
+              {editorEmpty && (
                 <p className="pointer-events-none absolute top-4 left-4 font-mono text-sm text-muted-foreground select-none">
                   {strings.editor.bodyPlaceholder}
                 </p>
@@ -748,11 +855,28 @@ export function DiaryEditorPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Info dialog — all CDs for this FIR already public */}
+      <Dialog open={alreadyPublicOpen} onOpenChange={setAlreadyPublicOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>सूचना</DialogTitle>
+            <DialogDescription>
+              {diary && `मुकदमा नं. ${diary.firNo} की सभी केस डायरी पहले से ही Public हैं।`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setAlreadyPublicOpen(false)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={visibilityOpen} onOpenChange={setVisibilityOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{strings.editor.makePublicConfirmTitle}</DialogTitle>
-            <DialogDescription>{strings.editor.makePublicConfirmDescription}</DialogDescription>
+            <DialogDescription>
+              {diary && `मुकदमा नं. ${diary.firNo} की सारी केस डायरी Public हो जाएंगी। यह क्रिया वापस नहीं की जा सकती।`}
+            </DialogDescription>
           </DialogHeader>
 
           {!visibilityOtpSent ? (

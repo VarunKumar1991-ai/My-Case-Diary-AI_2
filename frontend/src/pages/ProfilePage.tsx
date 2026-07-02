@@ -93,6 +93,10 @@ export function ProfilePage() {
             <p className="font-mono text-sm text-foreground">{strings.roles[user.role]}</p>
           </div>
           <div className="flex flex-col gap-1">
+            <Label className="text-xs text-muted-foreground">{strings.auth.designation}</Label>
+            <p className="font-mono text-sm text-foreground">{user.designation ?? strings.profile.notProvided}</p>
+          </div>
+          <div className="flex flex-col gap-1">
             <Label className="text-xs text-muted-foreground">{strings.auth.email}</Label>
             <p className="font-mono text-sm text-foreground">{user.email ?? strings.profile.notProvided}</p>
           </div>

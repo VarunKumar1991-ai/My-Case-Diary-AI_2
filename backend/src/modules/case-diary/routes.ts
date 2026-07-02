@@ -9,6 +9,7 @@ import {
   getCaseDiaries,
   getCaseDiary,
   getCaseDiaryRevisions,
+  getNextCaseDiaryNo,
   postCaseDiary,
   postShareConfirm,
   postShareRequestOtp,
@@ -28,6 +29,7 @@ caseDiaryRouter.post("/case-diaries", asyncHandler(postCaseDiary));
 // registered here, before the generic `:id` route below — otherwise Express
 // would capture "search" as `:id` and this fetch-by-id handler would shadow it.
 caseDiaryRouter.get("/case-diaries/search", asyncHandler(getCaseDiariesSearch));
+caseDiaryRouter.get("/case-diaries/next-no", asyncHandler(getNextCaseDiaryNo));
 
 caseDiaryRouter.get("/case-diaries/:id", asyncHandler(getCaseDiary));
 caseDiaryRouter.put("/case-diaries/:id", asyncHandler(putCaseDiary));

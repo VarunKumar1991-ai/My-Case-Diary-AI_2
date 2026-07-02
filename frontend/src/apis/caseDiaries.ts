@@ -14,6 +14,7 @@ export interface CaseDiary {
   ownerId: string;
   caseTypeId: string;
   caseDiaryNo: string;
+  caseDiaryDate: string | null;
   firNo: string;
   underSection: string;
   policeStation: string;
@@ -47,6 +48,8 @@ export interface CaseDiaryHeaderInput {
 }
 
 export interface CreateCaseDiaryInput extends CaseDiaryHeaderInput {
+  caseDiaryNo?: string;
+  caseDiaryDate?: string;
   body?: Record<string, unknown>;
 }
 
@@ -58,6 +61,11 @@ export type UpdateCaseDiaryInput = Partial<CaseDiaryHeaderInput> & {
 };
 
 export const caseDiariesApi = {
+  // CD No. is scoped per FIR — pass the FIR being drafted so the sequence starts
+  // at CD-001 for a new investigation and increments within an existing one.
+  nextNo: (firNo?: string) =>
+    api.get<{ caseDiaryNo: string }>("/case-diaries/next-no", firNo ? { firNo } : undefined),
+
   search: (q: string) => api.get<{ caseDiaries: CaseDiary[] }>("/case-diaries/search", { q }),
 
   list: (params?: { firNo?: string; scope?: CaseDiaryListScope }) =>

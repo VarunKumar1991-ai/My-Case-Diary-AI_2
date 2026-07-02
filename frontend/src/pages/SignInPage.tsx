@@ -126,6 +126,7 @@ export function SignInPage() {
                   placeholder="you@example.com or 9876543210"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
+                  className="border-green-200 hover:border-green-300 focus-visible:border-green-600 focus-visible:ring-green-600/30"
                 />
                 <p className="text-xs text-muted-foreground">{strings.auth.emailOrMobileHint}</p>
               </div>

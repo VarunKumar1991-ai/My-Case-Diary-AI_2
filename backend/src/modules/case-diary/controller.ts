@@ -15,6 +15,7 @@ import {
   confirmVisibilityChange,
   createCaseDiary,
   deleteCaseDiary,
+  generateNextCaseDiaryNo,
   getCaseDiaryById,
   listCaseDiaries,
   listCaseDiaryRevisions,
@@ -36,6 +37,14 @@ function requireDiaryId(req: Request): string {
   const id = req.params.id;
   if (!id) throw new ValidationError("Missing case diary id");
   return id;
+}
+
+export async function getNextCaseDiaryNo(req: Request, res: Response): Promise<void> {
+  const user = requireUser(req);
+  // CD No. is scoped per FIR; the client passes the FIR it's drafting for (if any).
+  const firNo = typeof req.query.firNo === "string" ? req.query.firNo : "";
+  const caseDiaryNo = await generateNextCaseDiaryNo(user.id, firNo);
+  res.json({ caseDiaryNo });
 }
 
 export async function postCaseDiary(req: Request, res: Response): Promise<void> {

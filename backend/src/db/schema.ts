@@ -107,16 +107,20 @@ export const caseDiaries = pgTable(
     placeOfIncidence: text("place_of_incidence").notNull(),
     plaintiffName: text("plaintiff_name").notNull(),
     accusedName: text("accused_name").notNull(),
+    caseDiaryDate: timestamp("case_diary_date", { withTimezone: true }),
     body: jsonb("body").notNull().default({}),
-    visibility: visibilityEnum("visibility").notNull().default("PRIVATE"),
+    visibility: visibilityEnum("visibility").notNull().default("PUBLIC"),
     status: diaryStatusEnum("status").notNull().default("draft"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    ownerCaseDiaryNoUnique: uniqueIndex("case_diaries_owner_case_diary_no_unique").on(
+    // Case Diary No. is scoped to the FIR (मुकदमा): every new investigation starts
+    // its own CD-001 sequence, so uniqueness is (owner, FIR, CD no.) — not owner-global.
+    ownerFirCaseDiaryNoUnique: uniqueIndex("case_diaries_owner_fir_case_diary_no_unique").on(
       table.ownerId,
+      table.firNo,
       table.caseDiaryNo,
     ),
     ownerIdx: index("case_diaries_owner_idx").on(table.ownerId),

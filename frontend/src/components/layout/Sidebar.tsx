@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
@@ -47,9 +46,9 @@ export function Sidebar() {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-          <Badge variant={user.role === "ADMIN" ? "accent" : "secondary"} className="mt-0.5">
-            {strings.roles[user.role]}
-          </Badge>
+          <p className="truncate text-xs text-muted-foreground mt-0.5">
+            {user.designation ?? strings.roles[user.role]}
+          </p>
         </div>
       </div>
 

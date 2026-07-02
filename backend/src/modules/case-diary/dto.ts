@@ -18,6 +18,8 @@ const diaryCore = {
 const diaryCoreSchema = z.object(diaryCore);
 
 export const createCaseDiarySchema = diaryCoreSchema.extend({
+  caseDiaryNo: z.string().trim().min(1).max(32).optional(),
+  caseDiaryDate: z.coerce.date().optional(),
   body: bodySchema.optional(),
 });
 
@@ -25,6 +27,7 @@ export const updateCaseDiarySchema = diaryCoreSchema
   .partial()
   .extend({
     caseDiaryNo: z.string().trim().min(1).max(32).optional(),
+    caseDiaryDate: z.coerce.date().optional(),
     status: z.enum(["draft", "finalized"]).optional(),
     body: bodySchema.optional(),
   })

@@ -87,6 +87,12 @@ export const en = {
     searching: "Searching…",
     suggestionsLabel: "Quick searches",
     startNewDiary: "Start a new case diary",
+    startNewInvestigation: "Start a new investigation",
+    investigationDialogTitle: "नई विवेचना प्रारम्भ करें",
+    investigationDialogDesc: "Fill in the FIR details to begin a new investigation. A Case Diary (CD-001) will be created.",
+    startInvestigation: "Start investigation",
+    startingInvestigation: "Starting…",
+    investigationCdDate: "CD Date",
     noResults: "No case diaries matched your search. Try a different term, or start a new one.",
   },
   diary: {

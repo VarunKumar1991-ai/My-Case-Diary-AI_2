@@ -91,6 +91,18 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Prevent browser autofill from overriding the input background color */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px #1c211d inset !important;
+    box-shadow: 0 0 0px 1000px #1c211d inset !important;
+    -webkit-text-fill-color: #e4e7e4 !important;
+    caret-color: #e4e7e4;
+    transition: background-color 0s ease-in-out 999999s;
+  }
+
   html {
     color-scheme: dark;
   }

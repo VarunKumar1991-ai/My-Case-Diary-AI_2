@@ -203,7 +203,7 @@ async function seedCaseDiaries() {
         visibility: diary.visibility,
         status: diary.status,
       })
-      .onConflictDoNothing({ target: [caseDiaries.ownerId, caseDiaries.caseDiaryNo] })
+      .onConflictDoNothing({ target: [caseDiaries.ownerId, caseDiaries.firNo, caseDiaries.caseDiaryNo] })
       .returning({ id: caseDiaries.id });
 
     if (result.length > 0) inserted += 1;
