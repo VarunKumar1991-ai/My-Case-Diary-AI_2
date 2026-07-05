@@ -85,6 +85,7 @@ export const adminApi = {
     api.get<{ users: AdminUser[] }>("/admin/users", { role: params.role, accountStatus: params.accountStatus, q: params.q || undefined }),
   blockUser: (id: string, reason: string) => api.post<{ user: AdminUser }>(`/admin/users/${id}/block`, { reason }),
   unblockUser: (id: string) => api.post<{ user: AdminUser }>(`/admin/users/${id}/unblock`),
+  changeUserRole: (id: string, role: Role) => api.post<{ user: AdminUser }>(`/admin/users/${id}/role`, { role }),
 
   listPrivateAccessRequests: (status?: ApprovalStatus) =>
     api.get<{ requests: PrivateAccessRequest[] }>("/admin/private-access-requests", { status }),

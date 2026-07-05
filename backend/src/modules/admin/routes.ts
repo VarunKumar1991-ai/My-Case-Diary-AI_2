@@ -5,6 +5,7 @@ import { asyncHandler } from "../../shared/asyncHandler.js";
 import {
   deleteCaseTypeHandler,
   deleteDesignationHandler,
+  postChangeUserRole,
   getCaseTypes,
   getDesignations,
   getPrivateAccessRequests,
@@ -44,6 +45,7 @@ adminRouter.delete("/designations/:id", asyncHandler(deleteDesignationHandler));
 adminRouter.get("/users", asyncHandler(getUsers));
 adminRouter.post("/users/:id/block", asyncHandler(postBlockUser));
 adminRouter.post("/users/:id/unblock", asyncHandler(postUnblockUser));
+adminRouter.post("/users/:id/role", asyncHandler(postChangeUserRole));
 
 adminRouter.get("/private-access-requests", asyncHandler(getPrivateAccessRequests));
 adminRouter.post("/private-access-requests", asyncHandler(postPrivateAccessRequest));

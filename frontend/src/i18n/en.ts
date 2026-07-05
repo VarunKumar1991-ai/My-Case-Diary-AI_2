@@ -259,6 +259,18 @@ export const en = {
       blockReasonPlaceholder: "e.g. Reported misuse of shared case diaries — pending review",
       blocked: "Account blocked.",
       unblocked: "Account unblocked.",
+      makeAdmin: "Make admin",
+      revokeAdmin: "Revoke admin",
+      promoteTitle: "Grant admin access?",
+      promoteDescription:
+        "This officer will gain full admin powers — user governance, taxonomy management, and the admin console.",
+      demoteTitle: "Revoke admin access?",
+      demoteDescription:
+        "This admin will lose all admin powers and return to a regular officer account.",
+      confirmPromote: "Make admin",
+      confirmDemote: "Revoke admin",
+      promoted: "Officer promoted to admin.",
+      demoted: "Admin reverted to officer.",
     },
     privateAccess: {
       intro:

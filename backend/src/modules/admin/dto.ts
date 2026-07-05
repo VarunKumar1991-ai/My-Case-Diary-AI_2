@@ -29,6 +29,11 @@ export const blockUserSchema = z.object({
   reason: z.string().trim().min(3, "Provide a brief reason for the block").max(500),
 });
 
+/** Promote/demote a user between the two existing roles — grants or revokes admin powers. */
+export const changeUserRoleSchema = z.object({
+  role: z.enum(["OFFICER", "ADMIN"]),
+});
+
 // ── Private access approvals (ADG-Technical workflow — §6.4) ──────────────
 
 export const createPrivateAccessRequestSchema = z.object({
@@ -50,6 +55,7 @@ export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = z.infer<typeof updateDesignationSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type BlockUserInput = z.infer<typeof blockUserSchema>;
+export type ChangeUserRoleInput = z.infer<typeof changeUserRoleSchema>;
 export type CreatePrivateAccessRequestInput = z.infer<typeof createPrivateAccessRequestSchema>;
 export type ListPrivateAccessRequestsQuery = z.infer<typeof listPrivateAccessRequestsQuerySchema>;
 export type ApprovePrivateAccessRequestInput = z.infer<typeof approvePrivateAccessRequestSchema>;

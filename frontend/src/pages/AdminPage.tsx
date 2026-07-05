@@ -316,6 +316,7 @@ type UsersFetchState =
 
 function UsersSection() {
   const strings = useStrings();
+  const { user: currentUser } = useAuth();
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [statusFilter, setStatusFilter] = useState<AccountStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -323,6 +324,7 @@ function UsersSection() {
   const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<UsersFetchState | null>(null);
   const [blockTarget, setBlockTarget] = useState<AdminUser | null>(null);
+  const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -428,7 +430,12 @@ function UsersSection() {
                     {target.id} · {target.email ?? strings.profile.notProvided} · {target.mobile ?? strings.profile.notProvided}
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 gap-2">
+                  {target.id !== currentUser?.id && (
+                    <Button variant="outline" size="sm" disabled={busyId === target.id} onClick={() => setRoleTarget(target)}>
+                      {target.role === "ADMIN" ? strings.admin.users.revokeAdmin : strings.admin.users.makeAdmin}
+                    </Button>
+                  )}
                   {target.accountStatus === "ACTIVE" ? (
                     <Button variant="outline" size="sm" disabled={busyId === target.id} onClick={() => setBlockTarget(target)}>
                       {strings.common.block}
@@ -459,7 +466,74 @@ function UsersSection() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={roleTarget !== null} onOpenChange={(open) => { if (!open) setRoleTarget(null); }}>
+        <DialogContent>
+          {roleTarget && (
+            <RoleChangeDialogForm
+              key={roleTarget.id}
+              target={roleTarget}
+              onClose={() => setRoleTarget(null)}
+              onChanged={() => {
+                setRoleTarget(null);
+                setReloadToken((token) => token + 1);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+interface RoleChangeDialogFormProps {
+  target: AdminUser;
+  onClose: () => void;
+  onChanged: () => void;
+}
+
+/** Confirms promoting an OFFICER to ADMIN (or reverting an ADMIN to OFFICER). */
+function RoleChangeDialogForm({ target, onClose, onChanged }: RoleChangeDialogFormProps) {
+  const strings = useStrings();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isPromote = target.role !== "ADMIN";
+  const nextRole: Role = isPromote ? "ADMIN" : "OFFICER";
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    adminApi
+      .changeUserRole(target.id, nextRole)
+      .then(() => {
+        toast.success(isPromote ? strings.admin.users.promoted : strings.admin.users.demoted);
+        onChanged();
+      })
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>{isPromote ? strings.admin.users.promoteTitle : strings.admin.users.demoteTitle}</DialogTitle>
+        <DialogDescription>
+          {target.name} — {isPromote ? strings.admin.users.promoteDescription : strings.admin.users.demoteDescription}
+        </DialogDescription>
+      </DialogHeader>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          {strings.common.cancel}
+        </Button>
+        <Button type="submit" variant={isPromote ? "default" : "destructive"} disabled={saving}>
+          {saving ? strings.common.saving : isPromote ? strings.admin.users.confirmPromote : strings.admin.users.confirmDemote}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 

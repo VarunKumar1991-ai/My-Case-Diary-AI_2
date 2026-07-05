@@ -10,6 +10,7 @@ import { toPublicUser, type PublicUser } from "../user/service.js";
 import type {
   ApprovePrivateAccessRequestInput,
   BlockUserInput,
+  ChangeUserRoleInput,
   CreateCaseTypeInput,
   CreateDesignationInput,
   CreatePrivateAccessRequestInput,
@@ -333,6 +334,45 @@ export async function unblockUser(
     resourceType: "user",
     resourceId: user.id,
     metadata: {},
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+  return toPublicUser(user);
+}
+
+/**
+ * Grant or revoke admin powers by switching a user between the two existing
+ * `role` enum values ("OFFICER" ⇄ "ADMIN") — no schema change, the column has
+ * always allowed both. Mirrors block/unblock: ADMIN-gated, self-targeting is
+ * refused (so an admin can't accidentally strip their own access and lock the
+ * console), and the change is written to the append-only audit trail. Like a
+ * block, it takes effect on the target's next request because `authGuard`
+ * re-loads the user (and thus their role) from the DB every time.
+ */
+export async function changeUserRole(
+  admin: AuthenticatedUser,
+  targetUserId: string,
+  input: ChangeUserRoleInput,
+  context: RequestContext,
+): Promise<PublicUser> {
+  requireAdmin(admin);
+  if (targetUserId === admin.id) {
+    throw new ValidationError("You cannot change your own role");
+  }
+
+  const [user] = await db
+    .update(users)
+    .set({ role: input.role })
+    .where(eq(users.id, targetUserId))
+    .returning();
+  if (!user) throw new NotFoundError("User not found");
+
+  await recordAuditEntry({
+    actorId: admin.id,
+    action: "admin.user.role_changed",
+    resourceType: "user",
+    resourceId: user.id,
+    metadata: { role: input.role },
     ip: context.ip,
     userAgent: context.userAgent,
   });

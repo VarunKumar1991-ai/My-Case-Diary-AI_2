@@ -4,6 +4,7 @@ import type { RequestContext } from "../../shared/http.js";
 import {
   approvePrivateAccessRequestSchema,
   blockUserSchema,
+  changeUserRoleSchema,
   createCaseTypeSchema,
   createDesignationSchema,
   createPrivateAccessRequestSchema,
@@ -15,6 +16,7 @@ import {
 import {
   approvePrivateAccessRequest,
   blockUser,
+  changeUserRole,
   createCaseType,
   createDesignation,
   deactivateCaseType,
@@ -115,6 +117,13 @@ export async function postBlockUser(req: Request, res: Response): Promise<void> 
 export async function postUnblockUser(req: Request, res: Response): Promise<void> {
   const admin = requireUser(req);
   const user = await unblockUser(admin, requireParam(req, "id"), buildContext(req));
+  res.json({ user });
+}
+
+export async function postChangeUserRole(req: Request, res: Response): Promise<void> {
+  const admin = requireUser(req);
+  const input = changeUserRoleSchema.parse(req.body);
+  const user = await changeUserRole(admin, requireParam(req, "id"), input, buildContext(req));
   res.json({ user });
 }
 
