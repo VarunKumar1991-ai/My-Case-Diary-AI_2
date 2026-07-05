@@ -9,6 +9,8 @@ export default defineConfig({
   // so assets must be referenced from '/'. (A GitHub Pages *project* URL like
   // <user>.github.io/<repo>/ would need a '/<repo>/' base — but the custom
   // domain, which is the real entry point, always serves at the root.)
+  // Redeploy trigger 2026-07-05: republish the base:'/' build after run #5's
+  // deploy step failed during the first custom-domain (cd.varunkumar.shop) attach.
   base: '/',
   plugins: [react(), tailwindcss()],
   resolve: {
