@@ -7,6 +7,7 @@ import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOption } from "@/apis/lookups";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { VisibilityBadge } from "@/components/VisibilityBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -222,9 +223,7 @@ export function ViewDiariesPage() {
                   मुकदमा नं. {group.firNo}
                 </span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={group.allPublic ? "default" : "outline"}>
-                    {group.allPublic ? strings.diary.public : strings.diary.private}
-                  </Badge>
+                  <VisibilityBadge visibility={group.allPublic ? "PUBLIC" : "PRIVATE"} />
                   <Badge variant="outline">
                     {caseTypeNameById.get(group.caseTypeId) ?? group.caseTypeId}
                   </Badge>

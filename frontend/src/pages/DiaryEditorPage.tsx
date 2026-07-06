@@ -16,6 +16,7 @@ import {
 import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOfficer, type LookupOption } from "@/apis/lookups";
 import { Badge } from "@/components/ui/badge";
+import { VisibilityBadge } from "@/components/VisibilityBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -653,7 +654,7 @@ export function DiaryEditorPage() {
               <Badge variant={diary.status === "finalized" ? "default" : "secondary"}>
                 {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
               </Badge>
-              <Badge variant="outline">{diary.visibility === "PUBLIC" ? strings.diary.public : strings.diary.private}</Badge>
+              <VisibilityBadge visibility={diary.visibility} />
               {diary.ownerId === user?.id && (
                 <>
                   <Button variant="outline" size="sm" onClick={openVisibilityDialog}>
