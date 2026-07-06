@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDownIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -82,6 +83,18 @@ export function ViewDiariesPage() {
   const [state, setState] = useState<FetchState | null>(null);
   const [visDialog, setVisDialog] = useState<VisibilityDialogState | null>(null);
   const [alreadyAt, setAlreadyAt] = useState<{ firNo: string; visibility: DiaryVisibility } | null>(null);
+  // FIR (मुकदमा) numbers whose case diaries are expanded. Every group starts
+  // collapsed — only the मुकदमा bars show until the officer clicks one.
+  const [expandedFirs, setExpandedFirs] = useState<Set<string>>(new Set());
+
+  function toggleFir(firNo: string) {
+    setExpandedFirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(firNo)) next.delete(firNo);
+      else next.add(firNo);
+      return next;
+    });
+  }
 
   const requestKey = `${scope}::${debouncedFirFilter}`;
   const loading = state === null || state.key !== requestKey;
@@ -116,6 +129,9 @@ export function ViewDiariesPage() {
       });
     return () => { cancelled = true; };
   }, [scope, debouncedFirFilter, strings.common.somethingWentWrong]);
+
+  // Collapse every group whenever the view changes (tab or FIR filter).
+  useEffect(() => { setExpandedFirs(new Set()); }, [scope, debouncedFirFilter]);
 
   const diaries = state?.status === "ok" ? state.diaries : [];
 
@@ -214,56 +230,76 @@ export function ViewDiariesPage() {
           <p className="text-sm text-muted-foreground">{strings.viewDiaries.empty}</p>
         )}
 
-        {!loading && firGroups.map((group) => (
-          <div key={group.firNo} className="flex flex-col gap-2">
-            {/* FIR section header */}
-            <div className="rounded-md border border-border bg-secondary px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-sm font-semibold text-primary">
-                  मुकदमा नं. {group.firNo}
-                </span>
-                <div className="flex items-center gap-2">
-                  <VisibilityBadge visibility={group.allPublic ? "PUBLIC" : "PRIVATE"} />
-                  <Badge variant="outline">
-                    {caseTypeNameById.get(group.caseTypeId) ?? group.caseTypeId}
-                  </Badge>
-                  {/* Owner can toggle either way: make public if private, make private if public */}
-                  {scope === "mine" && user && (
-                    <Button variant="outline" size="sm" onClick={() => openVisibilityDialog(group)}>
-                      {group.allPublic ? strings.editor.makePrivate : strings.editor.makePublic}
-                    </Button>
-                  )}
+        {!loading && firGroups.map((group) => {
+          const isExpanded = expandedFirs.has(group.firNo);
+          return (
+            <div key={group.firNo} className="flex flex-col gap-2">
+              {/* FIR bar — click to reveal/hide this मुकदमा's case diaries (collapsed by default) */}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                onClick={() => toggleFir(group.firNo)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFir(group.firNo); } }}
+                className="cursor-pointer rounded-md border border-border bg-secondary px-4 py-3 outline-none transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-mono text-sm font-semibold text-primary">
+                    <ChevronDownIcon className={`size-4 shrink-0 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+                    मुकदमा नं. {group.firNo}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {group.diaries.length} {strings.home.caseDiariesCount}
+                    </span>
+                    <VisibilityBadge visibility={group.allPublic ? "PUBLIC" : "PRIVATE"} />
+                    <Badge variant="outline">
+                      {caseTypeNameById.get(group.caseTypeId) ?? group.caseTypeId}
+                    </Badge>
+                    {/* Owner can toggle either way; stop the click from also collapsing the bar */}
+                    {scope === "mine" && user && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); openVisibilityDialog(group); }}
+                      >
+                        {group.allPublic ? strings.editor.makePrivate : strings.editor.makePublic}
+                      </Button>
+                    )}
+                  </div>
                 </div>
+                <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                  {group.policeStation} · {group.plaintiffName} vs. {group.accusedName}
+                </p>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {group.policeStation} · {group.plaintiffName} vs. {group.accusedName}
-              </p>
-            </div>
 
-            {/* Case diaries within this FIR, numbered from 1 */}
-            <div className="flex flex-col gap-2 border-l-2 border-border ml-2 pl-4">
-              {group.diaries.map((diary, index) => (
-                <Link key={diary.id} to={`/diary/${diary.id}`}>
-                  <Card className="transition-colors hover:border-primary/60">
-                    <CardContent className="flex flex-col gap-1.5 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-mono text-sm font-semibold text-primary">
-                          केस डायरी नं. {index + 1}
-                        </span>
-                        <Badge variant={diary.status === "finalized" ? "default" : "secondary"}>
-                          {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {diary.underSection} · Updated {formatDateTime(diary.updatedAt)}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+              {/* Case diaries within this FIR — hidden until the bar is clicked */}
+              {isExpanded && (
+                <div className="ml-2 flex flex-col gap-2 border-l-2 border-border pl-4">
+                  {group.diaries.map((diary, index) => (
+                    <Link key={diary.id} to={`/diary/${diary.id}`}>
+                      <Card className="transition-colors hover:border-primary/60">
+                        <CardContent className="flex flex-col gap-1.5 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-mono text-sm font-semibold text-primary">
+                              केस डायरी नं. {index + 1}
+                            </span>
+                            <Badge variant={diary.status === "finalized" ? "default" : "secondary"}>
+                              {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {diary.underSection} · Updated {formatDateTime(diary.updatedAt)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Info dialog — all CDs already at the requested visibility */}
