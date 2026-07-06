@@ -84,10 +84,10 @@ export const caseDiariesApi = {
 
   remove: (id: string) => api.delete<void>(`/case-diaries/${id}`),
 
-  /** Sends a 6-digit OTP to the owner's own email/mobile — required step-up before going PUBLIC (irreversible). */
-  requestVisibilityOtp: (id: string) =>
-    api.post<{ message: string }>(`/case-diaries/${id}/visibility/request-otp`, { visibility: "PUBLIC" }),
+  /** Sends a 6-digit OTP to the owner's own email/mobile — the step-up required before switching an FIR's visibility (PRIVATE ⇄ PUBLIC). */
+  requestVisibilityOtp: (id: string, visibility: DiaryVisibility) =>
+    api.post<{ message: string }>(`/case-diaries/${id}/visibility/request-otp`, { visibility }),
 
-  confirmVisibility: (id: string, code: string) =>
-    api.post<{ caseDiary: CaseDiary }>(`/case-diaries/${id}/visibility/confirm`, { visibility: "PUBLIC", code }),
+  confirmVisibility: (id: string, visibility: DiaryVisibility, code: string) =>
+    api.post<{ caseDiary: CaseDiary }>(`/case-diaries/${id}/visibility/confirm`, { visibility, code }),
 };

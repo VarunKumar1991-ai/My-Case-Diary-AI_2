@@ -574,7 +574,7 @@ export function DiaryEditorPage() {
     setVisibilitySubmitting(true);
     setVisibilityError(null);
     try {
-      await caseDiariesApi.requestVisibilityOtp(diary.id);
+      await caseDiariesApi.requestVisibilityOtp(diary.id, diary.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC");
       setVisibilityOtpSent(true);
       toast.success(strings.editor.otpSent);
     } catch (err) {
@@ -595,7 +595,11 @@ export function DiaryEditorPage() {
     setVisibilitySubmitting(true);
     setVisibilityError(null);
     try {
-      const { caseDiary } = await caseDiariesApi.confirmVisibility(diary.id, visibilityCode.trim());
+      const { caseDiary } = await caseDiariesApi.confirmVisibility(
+        diary.id,
+        diary.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC",
+        visibilityCode.trim(),
+      );
       setDiary(caseDiary);
       setVisibilityOpen(false);
       toast.success(strings.editor.visibilityChanged);
@@ -647,9 +651,9 @@ export function DiaryEditorPage() {
                 {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
               </Badge>
               <Badge variant="outline">{diary.visibility === "PUBLIC" ? strings.diary.public : strings.diary.private}</Badge>
-              {diary.visibility === "PRIVATE" && diary.ownerId === user?.id && (
+              {diary.ownerId === user?.id && (
                 <Button variant="outline" size="sm" onClick={openVisibilityDialog}>
-                  {strings.editor.makePublic}
+                  {diary.visibility === "PUBLIC" ? strings.editor.makePrivate : strings.editor.makePublic}
                 </Button>
               )}
             </>
@@ -973,13 +977,13 @@ export function DiaryEditorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Info dialog — all CDs for this FIR already public */}
+      {/* Info dialog — all CDs for this FIR already at the requested visibility */}
       <Dialog open={alreadyPublicOpen} onOpenChange={setAlreadyPublicOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>सूचना</DialogTitle>
             <DialogDescription>
-              {diary && `मुकदमा नं. ${diary.firNo} की सभी केस डायरी पहले से ही Public हैं।`}
+              {diary && `मुकदमा नं. ${diary.firNo} की सभी केस डायरी पहले से ही ${diary.visibility === "PUBLIC" ? "Private" : "Public"} हैं।`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -991,9 +995,11 @@ export function DiaryEditorPage() {
       <Dialog open={visibilityOpen} onOpenChange={setVisibilityOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{strings.editor.makePublicConfirmTitle}</DialogTitle>
+            <DialogTitle>
+              {diary?.visibility === "PUBLIC" ? strings.editor.makePrivateConfirmTitle : strings.editor.makePublicConfirmTitle}
+            </DialogTitle>
             <DialogDescription>
-              {diary && `मुकदमा नं. ${diary.firNo} की सारी केस डायरी Public हो जाएंगी। यह क्रिया वापस नहीं की जा सकती।`}
+              {diary && `मुकदमा नं. ${diary.firNo} की सारी केस डायरी ${diary.visibility === "PUBLIC" ? "Private" : "Public"} हो जाएंगी।`}
             </DialogDescription>
           </DialogHeader>
 

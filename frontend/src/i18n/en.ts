@@ -144,16 +144,20 @@ export const en = {
     notFound: "This case diary doesn't exist or you don't have access to it.",
     createFailed: "Fill in all required fields, then try creating the case diary again.",
     makePublic: "Make public",
+    makePrivate: "Make private",
     makePublicConfirmTitle: "Make this case diary public?",
     makePublicConfirmDescription:
-      "Public case diaries are visible to every signed-in officer and this cannot be undone. We'll send a verification code to your registered email/mobile to confirm.",
+      "Public case diaries are visible to every signed-in officer. You can switch it back to private anytime. We'll send a verification code to your registered email/mobile to confirm.",
+    makePrivateConfirmTitle: "Make this case diary private?",
+    makePrivateConfirmDescription:
+      "Private case diaries are visible only to you and officers you've shared them with. You can switch it back to public anytime. We'll send a verification code to your registered email/mobile to confirm.",
     sendCode: "Send code",
     sendingCode: "Sending…",
     otpSent: "A verification code has been sent to your registered email/mobile.",
     enterCode: "Enter the 6-digit code",
     confirm: "Confirm",
     confirming: "Confirming…",
-    visibilityChanged: "This case diary is now public.",
+    visibilityChanged: "Case diary visibility updated.",
   },
   viewDiaries: {
     heading: "Case diaries",

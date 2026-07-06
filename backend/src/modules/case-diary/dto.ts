@@ -44,11 +44,11 @@ export const listCaseDiariesQuerySchema = z.object({
 });
 
 export const visibilityRequestOtpSchema = z.object({
-  visibility: z.literal("PUBLIC"),
+  visibility: z.enum(["PUBLIC", "PRIVATE"]),
 });
 
 export const visibilityConfirmSchema = z.object({
-  visibility: z.literal("PUBLIC"),
+  visibility: z.enum(["PUBLIC", "PRIVATE"]),
   code: z.string().regex(/^\d{6}$/, "OTP must be a 6-digit code"),
 });
 

@@ -441,13 +441,16 @@ function ownerIdentifier(user: AuthenticatedUser): string {
 export async function requestVisibilityChangeOtp(
   user: AuthenticatedUser,
   diaryId: string,
-  _input: VisibilityRequestOtpInput,
+  input: VisibilityRequestOtpInput,
   context: RequestContext,
 ): Promise<void> {
   const diary = await loadDiaryOrThrow(diaryId);
   if (diary.ownerId !== user.id) throw new ForbiddenError("Only the owning officer can change visibility");
 
-  // Count PRIVATE diaries in this FIR owned by the same officer.
+  const target = input.visibility;
+
+  // Visibility is FIR-scoped and reversible (PRIVATE ⇄ PUBLIC): only require the
+  // step-up when at least one diary in this FIR is not already at the target.
   const firDiaries = await db
     .select({ visibility: caseDiaries.visibility })
     .from(caseDiaries)
@@ -459,8 +462,10 @@ export async function requestVisibilityChangeOtp(
       ),
     );
 
-  const hasPrivate = firDiaries.some((d) => d.visibility === "PRIVATE");
-  if (!hasPrivate) throw new ConflictError("All case diaries for this FIR are already public");
+  const needsChange = firDiaries.some((d) => d.visibility !== target);
+  if (!needsChange) {
+    throw new ConflictError(`All case diaries for this FIR are already ${target.toLowerCase()}`);
+  }
 
   await issueOtpChallenge(ownerIdentifier(user), "visibility-change");
   await recordAuditEntry({
@@ -468,7 +473,7 @@ export async function requestVisibilityChangeOtp(
     action: "case_diary.fir_visibility_otp_requested",
     resourceType: "case_diary",
     resourceId: diary.id,
-    metadata: { firNo: diary.firNo, to: "PUBLIC" },
+    metadata: { firNo: diary.firNo, to: target },
     ip: context.ip,
     userAgent: context.userAgent,
   });
@@ -485,10 +490,13 @@ export async function confirmVisibilityChange(
 
   await consumeOtpChallenge(ownerIdentifier(user), "visibility-change", input.code, GENERIC_OTP_FAILURE);
 
-  // Update ALL diaries in this FIR (owned by this officer) to PUBLIC.
+  const target = input.visibility;
+  const from = diary.visibility;
+
+  // Update ALL diaries in this FIR (owned by this officer) to the target visibility.
   await db
     .update(caseDiaries)
-    .set({ visibility: "PUBLIC", updatedAt: new Date() })
+    .set({ visibility: target, updatedAt: new Date() })
     .where(
       and(
         eq(caseDiaries.firNo, diary.firNo),
@@ -497,7 +505,7 @@ export async function confirmVisibilityChange(
       ),
     );
 
-  // Return the diary that was passed in (now PUBLIC).
+  // Return the diary that was passed in (now at the target visibility).
   const [updated] = await db
     .select()
     .from(caseDiaries)
@@ -510,7 +518,7 @@ export async function confirmVisibilityChange(
     action: "case_diary.fir_visibility_changed",
     resourceType: "case_diary",
     resourceId: diary.id,
-    metadata: { firNo: diary.firNo, from: "PRIVATE", to: "PUBLIC" },
+    metadata: { firNo: diary.firNo, from, to: target },
     ip: context.ip,
     userAgent: context.userAgent,
   });

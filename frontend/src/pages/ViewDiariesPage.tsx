@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
-import { caseDiariesApi, type CaseDiary, type CaseDiaryListScope } from "@/apis/caseDiaries";
+import { caseDiariesApi, type CaseDiary, type CaseDiaryListScope, type DiaryVisibility } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOption } from "@/apis/lookups";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,8 @@ type FetchState =
 interface VisibilityDialogState {
   firNo: string;
   anchorId: string;
+  /** The visibility this FIR will switch to when confirmed. */
+  target: DiaryVisibility;
   otpSent: boolean;
   code: string;
   submitting: boolean;
@@ -78,7 +80,7 @@ export function ViewDiariesPage() {
   const [caseTypes, setCaseTypes] = useState<LookupOption[]>([]);
   const [state, setState] = useState<FetchState | null>(null);
   const [visDialog, setVisDialog] = useState<VisibilityDialogState | null>(null);
-  const [alreadyPublicFirNo, setAlreadyPublicFirNo] = useState<string | null>(null);
+  const [alreadyAt, setAlreadyAt] = useState<{ firNo: string; visibility: DiaryVisibility } | null>(null);
 
   const requestKey = `${scope}::${debouncedFirFilter}`;
   const loading = state === null || state.key !== requestKey;
@@ -143,21 +145,23 @@ export function ViewDiariesPage() {
   }, [diaries]);
 
   function openVisibilityDialog(group: FirGroup) {
-    setVisDialog({ firNo: group.firNo, anchorId: group.anchorId, otpSent: false, code: "", submitting: false, error: null });
+    // FIR-scoped toggle: if every diary is public, the next step makes it private, and vice-versa.
+    const target: DiaryVisibility = group.allPublic ? "PRIVATE" : "PUBLIC";
+    setVisDialog({ firNo: group.firNo, anchorId: group.anchorId, target, otpSent: false, code: "", submitting: false, error: null });
   }
 
   async function handleRequestOtp() {
     if (!visDialog) return;
     setVisDialog((d) => d && { ...d, submitting: true, error: null });
     try {
-      await caseDiariesApi.requestVisibilityOtp(visDialog.anchorId);
+      await caseDiariesApi.requestVisibilityOtp(visDialog.anchorId, visDialog.target);
       setVisDialog((d) => d && { ...d, otpSent: true, submitting: false });
       toast.success(strings.editor.otpSent);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // All CDs for this FIR are already public — close OTP dialog, show info box.
+        // All CDs for this FIR are already at the target visibility — close OTP dialog, show info box.
         setVisDialog(null);
-        setAlreadyPublicFirNo(visDialog.firNo);
+        setAlreadyAt({ firNo: visDialog.firNo, visibility: visDialog.target });
       } else {
         setVisDialog((d) => d && { ...d, submitting: false, error: err instanceof ApiError ? err.message : strings.common.somethingWentWrong });
       }
@@ -169,7 +173,7 @@ export function ViewDiariesPage() {
     if (!visDialog) return;
     setVisDialog((d) => d && { ...d, submitting: true, error: null });
     try {
-      await caseDiariesApi.confirmVisibility(visDialog.anchorId, visDialog.code.trim());
+      await caseDiariesApi.confirmVisibility(visDialog.anchorId, visDialog.target, visDialog.code.trim());
       toast.success(strings.editor.visibilityChanged);
       setVisDialog(null);
       // Refresh the list so visibility badges update.
@@ -224,10 +228,10 @@ export function ViewDiariesPage() {
                   <Badge variant="outline">
                     {caseTypeNameById.get(group.caseTypeId) ?? group.caseTypeId}
                   </Badge>
-                  {/* Show "Make Public" only to the owner and only when FIR is not fully public */}
-                  {!group.allPublic && scope === "mine" && user && (
+                  {/* Owner can toggle either way: make public if private, make private if public */}
+                  {scope === "mine" && user && (
                     <Button variant="outline" size="sm" onClick={() => openVisibilityDialog(group)}>
-                      {strings.editor.makePublic}
+                      {group.allPublic ? strings.editor.makePrivate : strings.editor.makePublic}
                     </Button>
                   )}
                 </div>
@@ -263,17 +267,18 @@ export function ViewDiariesPage() {
         ))}
       </div>
 
-      {/* Info dialog — all CDs already public */}
-      <Dialog open={alreadyPublicFirNo !== null} onOpenChange={(open) => { if (!open) setAlreadyPublicFirNo(null); }}>
+      {/* Info dialog — all CDs already at the requested visibility */}
+      <Dialog open={alreadyAt !== null} onOpenChange={(open) => { if (!open) setAlreadyAt(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>सूचना</DialogTitle>
             <DialogDescription>
-              {alreadyPublicFirNo && `मुकदमा नं. ${alreadyPublicFirNo} की सभी केस डायरी पहले से ही Public हैं।`}
+              {alreadyAt &&
+                `मुकदमा नं. ${alreadyAt.firNo} की सभी केस डायरी पहले से ही ${alreadyAt.visibility === "PUBLIC" ? "Public" : "Private"} हैं।`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={() => setAlreadyPublicFirNo(null)}>OK</Button>
+            <Button onClick={() => setAlreadyAt(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -282,9 +287,12 @@ export function ViewDiariesPage() {
       <Dialog open={visDialog !== null} onOpenChange={(open) => { if (!open) setVisDialog(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{strings.editor.makePublicConfirmTitle}</DialogTitle>
+            <DialogTitle>
+              {visDialog?.target === "PRIVATE" ? strings.editor.makePrivateConfirmTitle : strings.editor.makePublicConfirmTitle}
+            </DialogTitle>
             <DialogDescription>
-              {visDialog && `मुकदमा नं. ${visDialog.firNo} की सारी केस डायरी Public हो जाएंगी। यह क्रिया वापस नहीं की जा सकती।`}
+              {visDialog &&
+                `मुकदमा नं. ${visDialog.firNo} की सारी केस डायरी ${visDialog.target === "PUBLIC" ? "Public" : "Private"} हो जाएंगी।`}
             </DialogDescription>
           </DialogHeader>
 
