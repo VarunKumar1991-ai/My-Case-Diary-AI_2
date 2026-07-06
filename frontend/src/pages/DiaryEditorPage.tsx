@@ -1094,27 +1094,28 @@ function ShareLogDialog({ diaryId }: { diaryId: string }) {
   }, [diaryId, strings.common.somethingWentWrong]);
 
   return (
-    <div className="flex flex-col gap-4">
+    // Terminal-style share log: monospace, green (--primary) text throughout.
+    <div className="flex flex-col gap-4 font-mono text-primary">
       <DialogHeader>
-        <DialogTitle>
+        <DialogTitle className="text-primary">
           {strings.editor.shareLog}
           {log ? ` — मुकदमा नं. ${log.firNo}` : ""}
         </DialogTitle>
         {log && (
-          <DialogDescription>
+          <DialogDescription className="text-primary/80">
             {log.recipientCount} {strings.editor.shareLogOfficersWord} · {log.sharedDiaryCount} {strings.editor.shareLogDiariesWord}
           </DialogDescription>
         )}
       </DialogHeader>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && !log && <p className="text-sm text-muted-foreground">{strings.common.loading}</p>}
-      {log && log.entries.length === 0 && <p className="text-sm text-muted-foreground">{strings.editor.shareLogEmpty}</p>}
+      {!error && !log && <p className="text-sm text-primary/70">{strings.common.loading}</p>}
+      {log && log.entries.length === 0 && <p className="text-sm text-primary/70">{strings.editor.shareLogEmpty}</p>}
 
       {log && log.entries.length > 0 && (
-        <div className="max-h-80 overflow-y-auto rounded-md border border-border">
+        <div className="max-h-80 overflow-y-auto rounded-md border border-primary/30">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
+            <thead className="sticky top-0 bg-secondary text-xs text-primary/70">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">{strings.editor.shareLogColOfficer}</th>
                 <th className="px-3 py-2 text-left font-medium">{strings.editor.shareLogColDiary}</th>
@@ -1123,16 +1124,16 @@ function ShareLogDialog({ diaryId }: { diaryId: string }) {
             </thead>
             <tbody>
               {log.entries.map((entry) => (
-                <tr key={`${entry.diaryId}-${entry.recipientId}`} className="border-t border-border">
+                <tr key={`${entry.diaryId}-${entry.recipientId}`} className="border-t border-primary/20">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-foreground">{entry.recipientName}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
+                    <div className="font-medium text-primary">{entry.recipientName}</div>
+                    <div className="text-xs text-primary/70">
                       {entry.recipientId}
                       {entry.recipientDesignation ? ` · ${entry.recipientDesignation}` : ""}
                     </div>
                   </td>
-                  <td className="px-3 py-2 font-mono text-foreground">{entry.caseDiaryNo}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDateTime(entry.sharedAt)}</td>
+                  <td className="px-3 py-2 text-primary">{entry.caseDiaryNo}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-primary/70">{formatDateTime(entry.sharedAt)}</td>
                 </tr>
               ))}
             </tbody>
