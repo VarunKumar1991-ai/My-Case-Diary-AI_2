@@ -428,7 +428,11 @@ export async function deleteCaseDiary(
 // ── Visibility step-up (PRIVATE → PUBLIC only; narrowing applies via update) ─
 
 function ownerIdentifier(user: AuthenticatedUser): string {
-  const identifier = user.mobile ?? user.email;
+  // Prefer email for step-up OTPs (visibility/share): email (Resend) delivers
+  // reliably, whereas the WhatsApp channel needs a one-time Twilio-sandbox join,
+  // so a mobile-first identifier silently failed to reach officers who never
+  // joined the sandbox. Mobile is the fallback for officers with no email.
+  const identifier = user.email ?? user.mobile;
   if (!identifier) {
     throw new ValidationError("Add a verified email or mobile number before changing visibility");
   }
