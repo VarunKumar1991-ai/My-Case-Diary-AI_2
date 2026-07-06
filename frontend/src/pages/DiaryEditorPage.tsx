@@ -349,9 +349,30 @@ export function DiaryEditorPage() {
 
   // Apply the chosen font size uniformly to the whole body (inline style on the
   // ProseMirror root overrides the base `text-sm` class).
+  //
+  // Tiptap v3's `useEditor` (with the default `immediatelyRender: true`) returns
+  // the editor instance *before* `EditorContent` mounts its ProseMirror view, so
+  // touching `editor.view` too early throws "The editor view is not available…"
+  // and trips the app-wide ErrorBoundary. Guard on `editor.isInitialized` and,
+  // when the view isn't mounted yet, defer to the `create` event — at which point
+  // `editor.view` exists — instead of reaching for `.view.dom` unconditionally.
   useEffect(() => {
     if (!editor) return;
-    editor.view.dom.style.fontSize = `${fontSize}px`;
+
+    const applyFontSize = () => {
+      if (editor.isDestroyed) return;
+      editor.view.dom.style.fontSize = `${fontSize}px`;
+    };
+
+    if (editor.isInitialized) {
+      applyFontSize();
+      return;
+    }
+
+    editor.on("create", applyFontSize);
+    return () => {
+      editor.off("create", applyFontSize);
+    };
   }, [editor, fontSize]);
 
   // ── Auto-fill new diary header from the latest existing diary ───────────
