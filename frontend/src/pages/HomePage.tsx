@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { SearchIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ChevronDownIcon, SearchIcon } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 import { caseDiariesApi, type CaseDiary } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
@@ -9,10 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStrings } from "@/i18n";
 import { formatDateTime } from "@/lib/utils";
 
-const QUICK_SEARCH_LIMIT = 6;
+/**
+ * Fixed "Quick searches" shortcuts shown in the dropdown beside the search box.
+ * Selecting one runs that keyword search immediately; the picked label stays on
+ * the trigger until the officer navigates Home (see the location-reset effect).
+ */
+const QUICK_SEARCH_OPTIONS = ["Cyber Crime", "Excise Act", "Kidnapping", "Murder", "NDPS", "Vehicle Theft"] as const;
 
 /**
  * §6.5: "centered, Google-style search/suggestion box as the primary
@@ -25,6 +31,7 @@ const QUICK_SEARCH_LIMIT = 6;
  */
 export function HomePage() {
   const strings = useStrings();
+  const location = useLocation();
 
   const [caseTypes, setCaseTypes] = useState<LookupOption[]>([]);
   const [query, setQuery] = useState("");
@@ -32,6 +39,31 @@ export function HomePage() {
   const [results, setResults] = useState<CaseDiary[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickSearch, setQuickSearch] = useState("");
+  // FIR (मुकदमा) numbers whose case-diary list is currently expanded. Every group
+  // starts collapsed — only the मुकदमा bars show until the officer clicks one.
+  const [expandedFirs, setExpandedFirs] = useState<Set<string>>(new Set());
+
+  function toggleFir(firNo: string) {
+    setExpandedFirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(firNo)) next.delete(firNo);
+      else next.add(firNo);
+      return next;
+    });
+  }
+
+  // Navigating Home (even re-clicking it while already here — each navigation is
+  // a new `location.key`) returns the page to its clean state: the Quick-searches
+  // trigger falls back to its placeholder and any prior results are cleared.
+  useEffect(() => {
+    setQuickSearch("");
+    setQuery("");
+    setSubmittedQuery(null);
+    setResults([]);
+    setError(null);
+    setExpandedFirs(new Set());
+  }, [location.key]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +86,36 @@ export function HomePage() {
     return map;
   }, [caseTypes]);
 
+  // Results are presented मुकदमा-वार (by FIR number), not सीडी-वार: the matching
+  // case diaries are grouped under their FIR (मुकदमा नं.) — the same grouping the
+  // "View Case Diaries" screen uses — so one मुकदमा never spreads across several
+  // flat rows. Groups are ordered by most-recent activity.
+  const firGroups = useMemo(() => {
+    const map = new Map<string, CaseDiary[]>();
+    for (const diary of results) {
+      const group = map.get(diary.firNo) ?? [];
+      group.push(diary);
+      map.set(diary.firNo, group);
+    }
+    return Array.from(map.entries())
+      .map(([firNo, entries]) => {
+        const sorted = [...entries].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        const latestUpdatedAt = sorted.reduce((max, d) => Math.max(max, new Date(d.updatedAt).getTime()), 0);
+        return {
+          firNo,
+          caseTypeId: sorted[0]!.caseTypeId,
+          policeStation: sorted[0]!.policeStation,
+          plaintiffName: sorted[0]!.plaintiffName,
+          accusedName: sorted[0]!.accusedName,
+          latestUpdatedAt,
+          diaries: sorted,
+        };
+      })
+      .sort((a, b) => b.latestUpdatedAt - a.latestUpdatedAt);
+  }, [results]);
+
   async function runSearch(term: string) {
     const trimmed = term.trim();
     if (!trimmed) return;
@@ -62,6 +124,7 @@ export function HomePage() {
     setSubmittedQuery(trimmed);
     setSearching(true);
     setError(null);
+    setExpandedFirs(new Set());
     try {
       const { caseDiaries } = await caseDiariesApi.search(trimmed);
       setResults(caseDiaries);
@@ -78,6 +141,11 @@ export function HomePage() {
     void runSearch(query);
   }
 
+  function handleQuickSearch(value: string) {
+    setQuickSearch(value);
+    void runSearch(value);
+  }
+
   const hasSearched = submittedQuery !== null;
 
   return (
@@ -90,8 +158,8 @@ export function HomePage() {
         <p className="max-w-xl text-sm text-muted-foreground">{strings.app.tagline}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-xl">
-        <div className="relative">
+      <div className="flex w-full max-w-2xl flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+        <form onSubmit={handleSubmit} className="relative flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
@@ -108,58 +176,85 @@ export function HomePage() {
           >
             {searching ? strings.home.searching : strings.common.search}
           </Button>
-        </div>
-      </form>
+        </form>
 
-      {!hasSearched && caseTypes.length > 0 && (
-        <div className="flex flex-col items-center gap-3">
-          <p className="text-xs tracking-wide text-muted-foreground uppercase">{strings.home.suggestionsLabel}</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {caseTypes.slice(0, QUICK_SEARCH_LIMIT).map((type) => (
-              <button
-                key={type.id}
-                type="button"
-                onClick={() => void runSearch(type.name)}
-                className="rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary hover:text-primary"
-              >
-                {type.name}
-              </button>
+        <Select value={quickSearch} onValueChange={handleQuickSearch}>
+          <SelectTrigger className="h-12 shrink-0 rounded-full sm:w-48" aria-label={strings.home.suggestionsLabel}>
+            <SelectValue placeholder={strings.home.suggestionsLabel} />
+          </SelectTrigger>
+          <SelectContent>
+            {QUICK_SEARCH_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
             ))}
-          </div>
-        </div>
-      )}
+          </SelectContent>
+        </Select>
+      </div>
 
       {hasSearched && (
-        <div className="w-full max-w-2xl space-y-3">
+        <div className="w-full max-w-2xl space-y-6">
           {error && <p className="text-center text-sm text-destructive">{error}</p>}
 
-          {!error && !searching && results.length === 0 && (
+          {!error && !searching && firGroups.length === 0 && (
             <p className="text-center text-sm text-muted-foreground">{strings.home.noResults}</p>
           )}
 
-          {results.map((diary) => (
-            <Link key={diary.id} to={`/diary/${diary.id}`}>
-              <Card className="transition-colors hover:border-primary/60">
-                <CardContent className="flex flex-col gap-2 p-4">
+          {firGroups.map((group) => {
+            const isExpanded = expandedFirs.has(group.firNo);
+            return (
+              <div key={group.firNo} className="flex flex-col gap-2">
+                {/* मुकदमा (FIR) bar — click to reveal/hide its case diaries (collapsed by default) */}
+                <button
+                  type="button"
+                  onClick={() => toggleFir(group.firNo)}
+                  aria-expanded={isExpanded}
+                  className="rounded-md border border-border bg-secondary px-4 py-3 text-left transition-colors hover:border-primary/60"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-sm font-semibold text-primary">{diary.caseDiaryNo}</span>
+                    <span className="flex items-center gap-2 font-mono text-sm font-semibold text-primary">
+                      <ChevronDownIcon
+                        className={`size-4 shrink-0 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
+                      />
+                      मुकदमा नं. {group.firNo}
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">{caseTypeNameById.get(diary.caseTypeId) ?? diary.caseTypeId}</Badge>
-                      <Badge variant={diary.status === "finalized" ? "default" : "secondary"}>
-                        {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
-                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {group.diaries.length} {strings.home.caseDiariesCount}
+                      </span>
+                      <Badge variant="outline">{caseTypeNameById.get(group.caseTypeId) ?? group.caseTypeId}</Badge>
                     </div>
                   </div>
-                  <p className="text-sm text-foreground">
-                    FIR {diary.firNo} · {diary.underSection}
+                  <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                    {group.policeStation} · {group.plaintiffName} vs. {group.accusedName}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {diary.plaintiffName} vs. {diary.accusedName} · Updated {formatDateTime(diary.updatedAt)}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                </button>
+
+                {/* Matching case diaries within this मुकदमा — hidden until the bar is clicked */}
+                {isExpanded && (
+                  <div className="ml-2 flex flex-col gap-2 border-l-2 border-border pl-4">
+                    {group.diaries.map((diary) => (
+                      <Link key={diary.id} to={`/diary/${diary.id}`}>
+                        <Card className="transition-colors hover:border-primary/60">
+                          <CardContent className="flex flex-col gap-1.5 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-mono text-sm font-semibold text-primary">{diary.caseDiaryNo}</span>
+                              <Badge variant={diary.status === "finalized" ? "default" : "secondary"}>
+                                {diary.status === "finalized" ? strings.diary.finalized : strings.diary.draft}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {diary.underSection} · Updated {formatDateTime(diary.updatedAt)}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

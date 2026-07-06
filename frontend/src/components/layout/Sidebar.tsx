@@ -8,7 +8,7 @@ import {
   ShieldIcon,
   UserIcon,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 import { NewInvestigationDialog } from "@/components/layout/NewInvestigationDialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
 export function Sidebar() {
   const strings = useStrings();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -57,7 +58,16 @@ export function Sidebar() {
       <Separator />
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
-        <NavLink to="/home" className={navLinkClasses}>
+        {/* Force a fresh navigation on every click (a new location.key) even when
+            already on /home, so HomePage resets its search + Quick-searches dropdown. */}
+        <NavLink
+          to="/home"
+          className={navLinkClasses}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/home", { replace: true, state: { home: Date.now() } });
+          }}
+        >
           <HomeIcon className="size-4" />
           {strings.nav.home}
         </NavLink>

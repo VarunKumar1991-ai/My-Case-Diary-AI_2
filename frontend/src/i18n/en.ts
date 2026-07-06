@@ -87,6 +87,7 @@ export const en = {
     searchPlaceholder: "Search by case diary no., FIR no., section, case type, or keyword…",
     searching: "Searching…",
     suggestionsLabel: "Quick searches",
+    caseDiariesCount: "केस डायरी",
     startNewDiary: "Start a new case diary",
     startNewInvestigation: "Start a new investigation",
     investigationDialogTitle: "नई विवेचना प्रारम्भ करें",
