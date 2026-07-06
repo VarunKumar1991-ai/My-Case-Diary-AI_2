@@ -17,6 +17,7 @@ import {
   deleteCaseDiary,
   generateNextCaseDiaryNo,
   getCaseDiaryById,
+  getFirShareLog,
   listCaseDiaries,
   listCaseDiaryRevisions,
   requestShareOtp,
@@ -112,4 +113,9 @@ export async function postShareConfirm(req: Request, res: Response): Promise<voi
   const input = shareConfirmSchema.parse(req.body);
   const share = await confirmShare(user, requireDiaryId(req), input, buildContext(req));
   res.status(201).json({ share });
+}
+
+export async function getShareLog(req: Request, res: Response): Promise<void> {
+  const user = requireUser(req);
+  res.json(await getFirShareLog(user, requireDiaryId(req)));
 }

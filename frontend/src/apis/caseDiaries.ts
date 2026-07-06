@@ -90,4 +90,30 @@ export const caseDiariesApi = {
 
   confirmVisibility: (id: string, visibility: DiaryVisibility, code: string) =>
     api.post<{ caseDiary: CaseDiary }>(`/case-diaries/${id}/visibility/confirm`, { visibility, code }),
+
+  /** Sends a 6-digit OTP to the owner before granting a colleague read-only access to this diary. */
+  requestShareOtp: (id: string, recipientId: string) =>
+    api.post<{ message: string }>(`/case-diaries/${id}/share/request-otp`, { recipientId }),
+
+  confirmShare: (id: string, recipientId: string, code: string) =>
+    api.post<{ share: unknown }>(`/case-diaries/${id}/share/confirm`, { recipientId, code }),
+
+  /** FIR-wide share log: which CD went to which officer and when (owner-only). */
+  getShareLog: (id: string) => api.get<ShareLog>(`/case-diaries/${id}/share-log`),
 };
+
+export interface ShareLogEntry {
+  diaryId: string;
+  caseDiaryNo: string;
+  recipientId: string;
+  recipientName: string;
+  recipientDesignation: string | null;
+  sharedAt: string;
+}
+
+export interface ShareLog {
+  firNo: string;
+  recipientCount: number;
+  sharedDiaryCount: number;
+  entries: ShareLogEntry[];
+}

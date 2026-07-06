@@ -154,6 +154,27 @@ async function hasShareGrant(diaryId: string, userId: string): Promise<boolean> 
   return Boolean(share);
 }
 
+/**
+ * Case-diary ids registered under this FIR (मुकदमा) by `ownerId` that are NOT yet
+ * shared with `recipientId`. Sharing is मुकदमा-scoped: a share grants access to
+ * every CD present at that moment, so this is the set to create grants for.
+ */
+async function firDiaryIdsUnsharedWith(firNo: string, ownerId: string, recipientId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: caseDiaries.id })
+    .from(caseDiaries)
+    .where(and(eq(caseDiaries.firNo, firNo), eq(caseDiaries.ownerId, ownerId), isNull(caseDiaries.deletedAt)));
+  const ids = rows.map((r) => r.id);
+  if (ids.length === 0) return [];
+
+  const shared = await db
+    .select({ diaryId: diaryShares.diaryId })
+    .from(diaryShares)
+    .where(and(inArray(diaryShares.diaryId, ids), eq(diaryShares.sharedWithUserId, recipientId)));
+  const sharedSet = new Set(shared.map((s) => s.diaryId));
+  return ids.filter((id) => !sharedSet.has(id));
+}
+
 async function hasApprovedPrivateAccess(diaryId: string, adminId: string): Promise<boolean> {
   const [approval] = await db
     .select({ id: privateAccessApprovals.id })
@@ -553,8 +574,9 @@ export async function requestShareOtp(
 
   const recipient = await loadShareRecipientOrThrow(input.recipientId, user.id);
 
-  if (await hasShareGrant(diary.id, recipient.id)) {
-    throw new ConflictError("This case diary is already shared with that officer");
+  const unshared = await firDiaryIdsUnsharedWith(diary.firNo, user.id, recipient.id);
+  if (unshared.length === 0) {
+    throw new ConflictError("All case diaries for this FIR are already shared with that officer");
   }
 
   await issueOtpChallenge(ownerIdentifier(user), "share-confirmation");
@@ -579,37 +601,86 @@ export async function confirmShare(
   if (diary.ownerId !== user.id) throw new ForbiddenError("Only the owning officer can share this case diary");
 
   const recipient = await loadShareRecipientOrThrow(input.recipientId, user.id);
-  if (await hasShareGrant(diary.id, recipient.id)) {
-    throw new ConflictError("This case diary is already shared with that officer");
-  }
 
   const identifier = ownerIdentifier(user);
   const consumed = await consumeOtpChallenge(identifier, "share-confirmation", input.code, GENERIC_OTP_FAILURE);
 
-  const [share] = await db
+  // Share the मुकदमा (FIR), not a single CD: grant read-only access to every case
+  // diary registered under this FIR *right now*. Any CD created later gets no grant
+  // here, so it stays invisible to the recipient — sharing is a point-in-time snapshot.
+  const diaryIds = await firDiaryIdsUnsharedWith(diary.firNo, user.id, recipient.id);
+  if (diaryIds.length === 0) {
+    throw new ConflictError("All case diaries for this FIR are already shared with that officer");
+  }
+
+  const shares = await db
     .insert(diaryShares)
-    .values({
-      id: generateId("share"),
-      diaryId: diary.id,
-      sharedByUserId: user.id,
-      sharedWithUserId: recipient.id,
-      accessLevel: "READ_ONLY",
-      // Ties the grant back to the exact step-up challenge that authorized it —
-      // both for the FK and for a precise audit trail.
-      otpChallengeId: consumed.id,
-    })
+    .values(
+      diaryIds.map((id) => ({
+        id: generateId("share"),
+        diaryId: id,
+        sharedByUserId: user.id,
+        sharedWithUserId: recipient.id,
+        accessLevel: "READ_ONLY" as const,
+        // Ties every grant back to the exact step-up challenge that authorized it.
+        otpChallengeId: consumed.id,
+      })),
+    )
     .returning();
-  if (!share) throw new ValidationError("Could not create the share grant. Please try again.");
+  if (shares.length === 0) throw new ValidationError("Could not create the share grants. Please try again.");
 
   await recordAuditEntry({
     actorId: user.id,
     action: "case_diary.shared",
     resourceType: "case_diary",
     resourceId: diary.id,
-    metadata: { recipientId: recipient.id, accessLevel: share.accessLevel },
+    metadata: { firNo: diary.firNo, recipientId: recipient.id, accessLevel: "READ_ONLY", sharedDiaryCount: shares.length },
     ip: context.ip,
     userAgent: context.userAgent,
   });
 
-  return share;
+  return { firNo: diary.firNo, recipientId: recipient.id, sharedDiaryCount: shares.length };
+}
+
+/**
+ * Share log for a whole मुकदमा (FIR): every read-only grant across the FIR's case
+ * diaries — which CD went to which officer and exactly when — plus the distinct
+ * recipient/CD counts. Owner-only; powers the "Share Log" popup.
+ */
+export async function getFirShareLog(user: AuthenticatedUser, diaryId: string) {
+  const diary = await loadDiaryOrThrow(diaryId);
+  if (diary.ownerId !== user.id) throw new ForbiddenError("Only the owning officer can view the share log");
+
+  const ids = (
+    await db
+      .select({ id: caseDiaries.id })
+      .from(caseDiaries)
+      .where(and(eq(caseDiaries.firNo, diary.firNo), eq(caseDiaries.ownerId, user.id), isNull(caseDiaries.deletedAt)))
+  ).map((r) => r.id);
+
+  if (ids.length === 0) {
+    return { firNo: diary.firNo, recipientCount: 0, sharedDiaryCount: 0, entries: [] };
+  }
+
+  const entries = await db
+    .select({
+      diaryId: diaryShares.diaryId,
+      caseDiaryNo: caseDiaries.caseDiaryNo,
+      recipientId: diaryShares.sharedWithUserId,
+      recipientName: users.name,
+      recipientDesignation: users.designation,
+      sharedAt: diaryShares.createdAt,
+    })
+    .from(diaryShares)
+    .innerJoin(caseDiaries, eq(caseDiaries.id, diaryShares.diaryId))
+    .innerJoin(users, eq(users.id, diaryShares.sharedWithUserId))
+    .where(inArray(diaryShares.diaryId, ids))
+    .orderBy(desc(diaryShares.createdAt));
+
+  return {
+    firNo: diary.firNo,
+    recipientCount: new Set(entries.map((e) => e.recipientId)).size,
+    sharedDiaryCount: new Set(entries.map((e) => e.diaryId)).size,
+    entries,
+  };
 }

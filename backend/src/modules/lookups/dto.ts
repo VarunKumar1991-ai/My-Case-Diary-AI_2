@@ -13,3 +13,10 @@ export interface LookupDesignation {
   name: string;
   description: string | null;
 }
+
+/** Minimal officer projection for the diary-share recipient picker (active officers only). */
+export interface LookupOfficer {
+  id: string;
+  name: string;
+  designation: string | null;
+}

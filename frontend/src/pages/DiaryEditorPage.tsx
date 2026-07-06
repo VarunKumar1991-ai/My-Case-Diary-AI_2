@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { MinusIcon, PlusIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { ClipboardListIcon, MinusIcon, PlusIcon, Share2Icon, SparklesIcon, Trash2Icon } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { type JSONContent, useEditor, EditorContent } from "@tiptap/react";
@@ -11,9 +11,10 @@ import {
   caseDiariesApi,
   type CaseDiary,
   type CaseDiaryHeaderInput,
+  type ShareLog,
 } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
-import { lookupsApi, type LookupOption } from "@/apis/lookups";
+import { lookupsApi, type LookupOfficer, type LookupOption } from "@/apis/lookups";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -292,6 +293,8 @@ export function DiaryEditorPage() {
   const [visibilitySubmitting, setVisibilitySubmitting] = useState(false);
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const [alreadyPublicOpen, setAlreadyPublicOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLogOpen, setShareLogOpen] = useState(false);
 
   function persist() {
     if (!diary || !editor) return;
@@ -652,9 +655,19 @@ export function DiaryEditorPage() {
               </Badge>
               <Badge variant="outline">{diary.visibility === "PUBLIC" ? strings.diary.public : strings.diary.private}</Badge>
               {diary.ownerId === user?.id && (
-                <Button variant="outline" size="sm" onClick={openVisibilityDialog}>
-                  {diary.visibility === "PUBLIC" ? strings.editor.makePrivate : strings.editor.makePublic}
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={openVisibilityDialog}>
+                    {diary.visibility === "PUBLIC" ? strings.editor.makePrivate : strings.editor.makePublic}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+                    <Share2Icon className="mr-1 size-3.5" />
+                    {strings.editor.share}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShareLogOpen(true)}>
+                    <ClipboardListIcon className="mr-1 size-3.5" />
+                    {strings.editor.shareLog}
+                  </Button>
+                </>
               )}
             </>
           )}
@@ -1042,6 +1055,247 @@ export function DiaryEditorPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent>
+          {shareOpen && diary && (
+            <ShareDiaryDialog
+              diaryId={diary.id}
+              onClose={() => setShareOpen(false)}
+              onShared={() => setShareOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={shareLogOpen} onOpenChange={setShareLogOpen}>
+        <DialogContent>
+          {shareLogOpen && diary && <ShareLogDialog diaryId={diary.id} />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Read-only popup: every share grant across this मुकदमा — CD, recipient officer, and timestamp. */
+function ShareLogDialog({ diaryId }: { diaryId: string }) {
+  const strings = useStrings();
+  const [log, setLog] = useState<ShareLog | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    caseDiariesApi
+      .getShareLog(diaryId)
+      .then((result) => { if (!cancelled) setLog(result); })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong); });
+    return () => { cancelled = true; };
+  }, [diaryId, strings.common.somethingWentWrong]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>
+          {strings.editor.shareLog}
+          {log ? ` — मुकदमा नं. ${log.firNo}` : ""}
+        </DialogTitle>
+        {log && (
+          <DialogDescription>
+            {log.recipientCount} {strings.editor.shareLogOfficersWord} · {log.sharedDiaryCount} {strings.editor.shareLogDiariesWord}
+          </DialogDescription>
+        )}
+      </DialogHeader>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!error && !log && <p className="text-sm text-muted-foreground">{strings.common.loading}</p>}
+      {log && log.entries.length === 0 && <p className="text-sm text-muted-foreground">{strings.editor.shareLogEmpty}</p>}
+
+      {log && log.entries.length > 0 && (
+        <div className="max-h-80 overflow-y-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">{strings.editor.shareLogColOfficer}</th>
+                <th className="px-3 py-2 text-left font-medium">{strings.editor.shareLogColDiary}</th>
+                <th className="px-3 py-2 text-left font-medium">{strings.editor.shareLogColWhen}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {log.entries.map((entry) => (
+                <tr key={`${entry.diaryId}-${entry.recipientId}`} className="border-t border-border">
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-foreground">{entry.recipientName}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {entry.recipientId}
+                      {entry.recipientDesignation ? ` · ${entry.recipientDesignation}` : ""}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 font-mono text-foreground">{entry.caseDiaryNo}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDateTime(entry.sharedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ShareDiaryDialogProps {
+  diaryId: string;
+  onClose: () => void;
+  onShared: () => void;
+}
+
+/**
+ * Share flow: type-ahead over the active-officer directory to pick a recipient,
+ * then the owner confirms with an OTP (sent to their registered contact) before
+ * a READ_ONLY grant is created (mirrors the visibility step-up).
+ */
+function ShareDiaryDialog({ diaryId, onClose, onShared }: ShareDiaryDialogProps) {
+  const strings = useStrings();
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [officers, setOfficers] = useState<LookupOfficer[]>([]);
+  const [selected, setSelected] = useState<LookupOfficer | null>(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(query.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    let cancelled = false;
+    lookupsApi
+      .searchOfficers(debounced)
+      .then(({ officers: results }) => { if (!cancelled) setOfficers(results); })
+      .catch(() => { if (!cancelled) setOfficers([]); });
+    return () => { cancelled = true; };
+  }, [debounced]);
+
+  async function sendCode() {
+    if (!selected) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await caseDiariesApi.requestShareOtp(diaryId, selected.id);
+      setOtpSent(true);
+      toast.success(strings.editor.otpSent);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirm(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await caseDiariesApi.confirmShare(diaryId, selected.id, code.trim());
+      toast.success(strings.editor.shared);
+      onShared();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>{strings.editor.shareTitle}</DialogTitle>
+        <DialogDescription>{strings.editor.shareDescription}</DialogDescription>
+      </DialogHeader>
+
+      {!otpSent ? (
+        <>
+          {selected ? (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-secondary px-3 py-2">
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">{strings.editor.shareSelectedLabel}</span>
+                <span className="text-sm font-medium text-foreground">
+                  {selected.name} · {selected.id}
+                  {selected.designation ? ` · ${selected.designation}` : ""}
+                </span>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(null)}>
+                {strings.common.cancel}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="share-officer-search">{strings.editor.shareRecipientLabel}</Label>
+              <Input
+                id="share-officer-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={strings.editor.shareSearchPlaceholder}
+                autoFocus
+              />
+              <div className="max-h-56 overflow-y-auto rounded-md border border-border">
+                {officers.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">{strings.editor.shareNoOfficers}</p>
+                ) : (
+                  officers.map((officer) => (
+                    <button
+                      key={officer.id}
+                      type="button"
+                      onClick={() => setSelected(officer)}
+                      className="flex w-full flex-col items-start gap-0.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-secondary"
+                    >
+                      <span className="text-sm font-medium text-foreground">{officer.name}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {officer.id}
+                        {officer.designation ? ` · ${officer.designation}` : ""}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>{strings.common.cancel}</Button>
+            <Button type="button" onClick={() => void sendCode()} disabled={!selected || submitting}>
+              {submitting ? strings.editor.sendingCode : strings.editor.shareSend}
+            </Button>
+          </DialogFooter>
+        </>
+      ) : (
+        <form onSubmit={(e) => void confirm(e)} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="share-otp">{strings.editor.enterCode}</Label>
+            <Input
+              id="share-otp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              required
+              autoFocus
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>{strings.common.cancel}</Button>
+            <Button type="submit" disabled={submitting || code.length !== 6}>
+              {submitting ? strings.editor.confirming : strings.editor.confirm}
+            </Button>
+          </DialogFooter>
+        </form>
+      )}
     </div>
   );
 }

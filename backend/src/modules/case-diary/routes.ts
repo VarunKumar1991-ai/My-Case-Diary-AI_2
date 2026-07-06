@@ -10,6 +10,7 @@ import {
   getCaseDiary,
   getCaseDiaryRevisions,
   getNextCaseDiaryNo,
+  getShareLog,
   postCaseDiary,
   postShareConfirm,
   postShareRequestOtp,
@@ -55,3 +56,4 @@ caseDiaryRouter.post(
 );
 caseDiaryRouter.post("/case-diaries/:id/share/request-otp", otpRateLimiter, asyncHandler(postShareRequestOtp));
 caseDiaryRouter.post("/case-diaries/:id/share/confirm", otpRateLimiter, asyncHandler(postShareConfirm));
+caseDiaryRouter.get("/case-diaries/:id/share-log", asyncHandler(getShareLog));

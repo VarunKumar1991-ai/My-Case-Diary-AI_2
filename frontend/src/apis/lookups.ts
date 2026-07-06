@@ -12,7 +12,15 @@ export interface LookupOption {
   description: string | null;
 }
 
+export interface LookupOfficer {
+  id: string;
+  name: string;
+  designation: string | null;
+}
+
 export const lookupsApi = {
   listDesignations: () => api.get<{ designations: LookupOption[] }>("/designations"),
   listCaseTypes: () => api.get<{ caseTypes: LookupOption[] }>("/case-types"),
+  /** Active officers matching `q` (by name or PNO), for the diary-share recipient picker. */
+  searchOfficers: (q: string) => api.get<{ officers: LookupOfficer[] }>("/officers", { q: q || undefined }),
 };

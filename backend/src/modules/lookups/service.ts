@@ -1,7 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ilike, ne, or } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { caseTypes, designations } from "../../db/schema.js";
-import type { LookupCaseType, LookupDesignation } from "./dto.js";
+import { caseTypes, designations, users } from "../../db/schema.js";
+import type { LookupCaseType, LookupDesignation, LookupOfficer } from "./dto.js";
 
 /**
  * §6.1/§6.2 require officers to *pick from* the admin-curated case-type and
@@ -28,4 +28,24 @@ export async function listActiveDesignations(): Promise<LookupDesignation[]> {
     .from(designations)
     .where(eq(designations.isActive, true))
     .orderBy(asc(designations.name));
+}
+
+/**
+ * Directory of ACTIVE officers for the diary-share recipient picker. Any signed-in
+ * officer may look colleagues up (by name or PNO) to share a case diary with them;
+ * only the minimal id/name/designation is exposed (never contact details), the
+ * caller is excluded, and results are capped so this can back a type-ahead.
+ */
+export async function searchOfficers(query: string | undefined, excludeUserId: string): Promise<LookupOfficer[]> {
+  const conditions = [eq(users.accountStatus, "ACTIVE"), ne(users.id, excludeUserId)];
+  if (query) {
+    const pattern = `%${query}%`;
+    conditions.push(or(ilike(users.name, pattern), ilike(users.id, pattern))!);
+  }
+  return db
+    .select({ id: users.id, name: users.name, designation: users.designation })
+    .from(users)
+    .where(and(...conditions))
+    .orderBy(asc(users.name))
+    .limit(20);
 }
