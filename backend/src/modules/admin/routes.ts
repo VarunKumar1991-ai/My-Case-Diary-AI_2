@@ -9,6 +9,7 @@ import {
   getCaseTypes,
   getDesignations,
   getPrivateAccessRequests,
+  getQuickSearchSettings,
   getUsers,
   postApprovePrivateAccessRequest,
   postBlockUser,
@@ -19,6 +20,7 @@ import {
   postUnblockUser,
   putCaseType,
   putDesignation,
+  putQuickSearchSettings,
 } from "./controller.js";
 
 /**
@@ -31,6 +33,9 @@ import {
 export const adminRouter = Router();
 
 adminRouter.use(authGuard, requireRole("ADMIN"));
+
+adminRouter.get("/settings/quick-search", asyncHandler(getQuickSearchSettings));
+adminRouter.put("/settings/quick-search", asyncHandler(putQuickSearchSettings));
 
 adminRouter.get("/case-types", asyncHandler(getCaseTypes));
 adminRouter.post("/case-types", asyncHandler(postCaseType));

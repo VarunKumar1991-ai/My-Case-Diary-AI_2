@@ -6,6 +6,10 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { generateId } from "../../shared/id.js";
 import type { RequestContext } from "../../shared/http.js";
 import { recordAuditEntry } from "../audit/service.js";
+import {
+  getQuickSearchLimit as readQuickSearchLimit,
+  setQuickSearchLimit as writeQuickSearchLimit,
+} from "../settings/service.js";
 import { toPublicUser, type PublicUser } from "../user/service.js";
 import type {
   ApprovePrivateAccessRequestInput,
@@ -43,6 +47,34 @@ function requireAdgTechnical(user: AuthenticatedUser): void {
   if (user.role !== "ADMIN" || user.designation !== ADG_TECHNICAL_DESIGNATION) {
     throw new ForbiddenError("Only ADG (Technical) may decide private-access requests");
   }
+}
+
+// ── App settings (admin-tunable knobs) ─────────────────────────────────────
+
+/** How many quick-search chips the Home page shows (admin-set). */
+export async function getQuickSearchLimit(admin: AuthenticatedUser): Promise<number> {
+  requireAdmin(admin);
+  return readQuickSearchLimit();
+}
+
+export async function setQuickSearchLimit(
+  admin: AuthenticatedUser,
+  limit: number,
+  context: RequestContext,
+): Promise<number> {
+  requireAdmin(admin);
+  await writeQuickSearchLimit(limit);
+  const saved = await readQuickSearchLimit();
+  await recordAuditEntry({
+    actorId: admin.id,
+    action: "settings.quick_search_limit.update",
+    resourceType: "app_setting",
+    resourceId: "home_quick_search_limit",
+    metadata: { limit: saved },
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+  return saved;
 }
 
 // ── Case Type taxonomy ─────────────────────────────────────────────────────

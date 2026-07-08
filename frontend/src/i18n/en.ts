@@ -247,9 +247,18 @@ export const en = {
     tabs: {
       caseTypes: "Case types",
       designations: "Designations",
+      quickSearch: "Quick search",
       users: "Users",
       privateAccess: "Private access",
       auditLog: "Audit log",
+    },
+    quickSearch: {
+      intro:
+        "Quick-search chips appear below the Home search box — one per active case type. Set how many of them to show. Set 0 to hide the chips entirely.",
+      countLabel: "Number of chips to show",
+      countHint: "0–24. The chips are drawn from the active case types, in name order.",
+      invalid: "Enter a whole number between 0 and 24.",
+      saved: "Quick-search setting saved.",
     },
     taxonomy: {
       caseTypesIntro:

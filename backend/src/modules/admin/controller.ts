@@ -12,6 +12,7 @@ import {
   listUsersQuerySchema,
   updateCaseTypeSchema,
   updateDesignationSchema,
+  updateQuickSearchLimitSchema,
 } from "./dto.js";
 import {
   approvePrivateAccessRequest,
@@ -22,11 +23,13 @@ import {
   deactivateCaseType,
   deactivateDesignation,
   denyPrivateAccessRequest,
+  getQuickSearchLimit,
   listCaseTypes,
   listDesignations,
   listPrivateAccessRequests,
   listUsers,
   requestPrivateAccess,
+  setQuickSearchLimit,
   unblockUser,
   updateCaseType,
   updateDesignation,
@@ -97,6 +100,19 @@ export async function deleteDesignationHandler(req: Request, res: Response): Pro
   const admin = requireUser(req);
   await deactivateDesignation(admin, requireParam(req, "id"), buildContext(req));
   res.status(204).send();
+}
+
+// ── App settings ───────────────────────────────────────────────────────────
+
+export async function getQuickSearchSettings(req: Request, res: Response): Promise<void> {
+  const admin = requireUser(req);
+  res.json({ limit: await getQuickSearchLimit(admin) });
+}
+
+export async function putQuickSearchSettings(req: Request, res: Response): Promise<void> {
+  const admin = requireUser(req);
+  const { limit } = updateQuickSearchLimitSchema.parse(req.body);
+  res.json({ limit: await setQuickSearchLimit(admin, limit, buildContext(req)) });
 }
 
 // ── User governance ────────────────────────────────────────────────────────

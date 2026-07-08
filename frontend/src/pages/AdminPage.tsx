@@ -37,8 +37,8 @@ const ADG_TECHNICAL_DESIGNATION = "ADG (Technical)";
 
 // ── Section shell ──────────────────────────────────────────────────────────
 
-type AdminSection = "caseTypes" | "designations" | "users" | "privateAccess" | "auditLog";
-const SECTIONS: AdminSection[] = ["caseTypes", "designations", "users", "privateAccess", "auditLog"];
+type AdminSection = "caseTypes" | "designations" | "quickSearch" | "users" | "privateAccess" | "auditLog";
+const SECTIONS: AdminSection[] = ["caseTypes", "designations", "quickSearch", "users", "privateAccess", "auditLog"];
 
 function sectionLabel(section: AdminSection, strings: Strings): string {
   switch (section) {
@@ -46,6 +46,8 @@ function sectionLabel(section: AdminSection, strings: Strings): string {
       return strings.admin.tabs.caseTypes;
     case "designations":
       return strings.admin.tabs.designations;
+    case "quickSearch":
+      return strings.admin.tabs.quickSearch;
     case "users":
       return strings.admin.tabs.users;
     case "privateAccess":
@@ -113,6 +115,8 @@ export function AdminPage() {
           deactivate={(id) => adminApi.deactivateDesignation(id)}
         />
       )}
+
+      {section === "quickSearch" && <QuickSearchSection key="quickSearch" />}
 
       {section === "users" && <UsersSection key="users" />}
 
@@ -303,6 +307,95 @@ function TaxonomyDialogForm({ state, addLabel, editLabel, onCreate, onUpdate, on
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+// ── Quick-search settings (Home page chips) ────────────────────────────────
+
+const QUICK_SEARCH_MAX = 24;
+
+/**
+ * Lets the admin decide how many quick-search chips the Home page shows below
+ * the search box. The chips themselves are the active case types (managed in the
+ * "Case types" tab); this only caps how many of them appear. 0 hides them.
+ */
+function QuickSearchSection() {
+  const strings = useStrings();
+  const [limit, setLimit] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApi
+      .getQuickSearchLimit()
+      .then(({ limit: value }) => {
+        if (!cancelled) setLimit(String(value));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [strings.common.somethingWentWrong]);
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const parsed = Number.parseInt(limit, 10);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > QUICK_SEARCH_MAX) {
+      setError(strings.admin.quickSearch.invalid);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    adminApi
+      .setQuickSearchLimit(parsed)
+      .then(({ limit: saved }) => {
+        setLimit(String(saved));
+        toast.success(strings.admin.quickSearch.saved);
+      })
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{strings.admin.quickSearch.intro}</p>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">{strings.common.loading}</p>
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:max-w-sm">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="quick-search-limit">{strings.admin.quickSearch.countLabel}</Label>
+                <Input
+                  id="quick-search-limit"
+                  type="number"
+                  min={0}
+                  max={QUICK_SEARCH_MAX}
+                  value={limit}
+                  onChange={(e) => setLimit(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{strings.admin.quickSearch.countHint}</p>
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <Button type="submit" className="shrink-0 self-start" disabled={saving}>
+                {saving ? strings.common.saving : strings.common.save}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 

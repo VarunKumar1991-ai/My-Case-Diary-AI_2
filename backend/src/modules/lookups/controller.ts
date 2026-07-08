@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { UnauthorizedError } from "../../shared/errors.js";
+import { getQuickSearchLimit } from "../settings/service.js";
 import { listActiveCaseTypes, listActiveDesignations, searchOfficers } from "./service.js";
 
 export async function getCaseTypeLookups(_req: Request, res: Response): Promise<void> {
@@ -8,6 +9,10 @@ export async function getCaseTypeLookups(_req: Request, res: Response): Promise<
 
 export async function getDesignationLookups(_req: Request, res: Response): Promise<void> {
   res.json({ designations: await listActiveDesignations() });
+}
+
+export async function getQuickSearchConfig(_req: Request, res: Response): Promise<void> {
+  res.json({ limit: await getQuickSearchLimit() });
 }
 
 export async function getOfficerLookups(req: Request, res: Response): Promise<void> {

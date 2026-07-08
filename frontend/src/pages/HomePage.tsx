@@ -9,16 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStrings } from "@/i18n";
 import { formatDateTime } from "@/lib/utils";
-
-/**
- * Fixed "Quick searches" shortcuts shown in the dropdown beside the search box.
- * Selecting one runs that keyword search immediately; the picked label stays on
- * the trigger until the officer navigates Home (see the location-reset effect).
- */
-const QUICK_SEARCH_OPTIONS = ["Cyber Crime", "Excise Act", "Kidnapping", "Murder", "NDPS", "Vehicle Theft"] as const;
 
 /**
  * §6.5: "centered, Google-style search/suggestion box as the primary
@@ -39,7 +31,9 @@ export function HomePage() {
   const [results, setResults] = useState<CaseDiary[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quickSearch, setQuickSearch] = useState("");
+  // How many quick-search chips to show — admin-tuned (§Admin ▸ Quick search).
+  // `null` while loading so nothing flashes before the real count arrives.
+  const [quickLimit, setQuickLimit] = useState<number | null>(null);
   // FIR (मुकदमा) numbers whose case-diary list is currently expanded. Every group
   // starts collapsed — only the मुकदमा bars show until the officer clicks one.
   const [expandedFirs, setExpandedFirs] = useState<Set<string>>(new Set());
@@ -57,7 +51,6 @@ export function HomePage() {
   // a new `location.key`) returns the page to its clean state: the Quick-searches
   // trigger falls back to its placeholder and any prior results are cleared.
   useEffect(() => {
-    setQuickSearch("");
     setQuery("");
     setSubmittedQuery(null);
     setResults([]);
@@ -75,10 +68,25 @@ export function HomePage() {
       .catch(() => {
         // Quick-search chips are a nicety on top of the search box — degrade silently if the lookup fails.
       });
+    lookupsApi
+      .getQuickSearchConfig()
+      .then(({ limit }) => {
+        if (!cancelled) setQuickLimit(limit);
+      })
+      .catch(() => {
+        if (!cancelled) setQuickLimit(0); // hide chips if the config read fails
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // The chips are the active case-type taxonomy (admin-managed), capped to the
+  // admin-set count. Name-ordered from the lookup; `quickLimit` decides how many.
+  const quickSearchChips = useMemo(
+    () => (quickLimit === null ? [] : caseTypes.slice(0, quickLimit).map((c) => c.name)),
+    [caseTypes, quickLimit],
+  );
 
   const caseTypeNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -141,10 +149,6 @@ export function HomePage() {
     void runSearch(query);
   }
 
-  function handleQuickSearch(value: string) {
-    setQuickSearch(value);
-    void runSearch(value);
-  }
 
   const hasSearched = submittedQuery !== null;
 
@@ -158,8 +162,8 @@ export function HomePage() {
         <p className="max-w-xl text-sm text-muted-foreground">{strings.app.tagline}</p>
       </div>
 
-      <div className="flex w-full max-w-2xl flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        <form onSubmit={handleSubmit} className="relative flex-1">
+      <div className="flex w-full max-w-2xl flex-col items-stretch gap-3">
+        <form onSubmit={handleSubmit} className="relative w-full">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
@@ -178,18 +182,24 @@ export function HomePage() {
           </Button>
         </form>
 
-        <Select value={quickSearch} onValueChange={handleQuickSearch}>
-          <SelectTrigger className="h-12 shrink-0 rounded-full sm:w-48" aria-label={strings.home.suggestionsLabel}>
-            <SelectValue placeholder={strings.home.suggestionsLabel} />
-          </SelectTrigger>
-          <SelectContent>
-            {QUICK_SEARCH_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
+        {/* Quick-search chips — like the shortcuts under Claude's search box.
+            Each is the name of an admin-managed active case type; clicking one
+            runs that keyword search immediately. Admin controls how many show. */}
+        {quickSearchChips.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {quickSearchChips.map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => void runSearch(label)}
+                disabled={searching}
+                className="inline-flex items-center rounded-lg bg-[#4ade80] px-3 py-1.5 text-sm font-medium text-emerald-950 shadow-xs transition-colors hover:bg-[#22c55e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+              >
+                {label}
+              </button>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
       </div>
 
       {hasSearched && (

@@ -29,6 +29,13 @@
       "when": 1751587200000,
       "tag": "0003_cd_no_per_fir",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783541431991,
+      "tag": "0004_app_settings",
+      "breakpoints": true
     }
   ]
 }

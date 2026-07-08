@@ -97,4 +97,7 @@ export const adminApi = {
     api.post<{ request: PrivateAccessRequest }>(`/admin/private-access-requests/${id}/deny`),
 
   listAuditLogs: (limit?: number) => api.get<{ logs: AuditLogEntry[] }>("/admin/audit-logs", { limit }),
+
+  getQuickSearchLimit: () => api.get<{ limit: number }>("/admin/settings/quick-search"),
+  setQuickSearchLimit: (limit: number) => api.put<{ limit: number }>("/admin/settings/quick-search", { limit }),
 };

@@ -66,6 +66,17 @@ export const otpChallenges = pgTable(
   }),
 );
 
+// ── App Settings (admin-tunable key/value knobs) ───────────────────────────
+// A tiny generic store for site-wide settings an admin can change at runtime
+// without a redeploy (e.g. how many quick-search chips the Home page shows).
+// One row per key; the value is stored as text and parsed by the reader.
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── Case Type (admin-managed taxonomy) ─────────────────────────────────────
 
 export const caseTypes = pgTable("case_types", {

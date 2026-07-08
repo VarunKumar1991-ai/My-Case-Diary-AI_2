@@ -49,6 +49,13 @@ export const approvePrivateAccessRequestSchema = z.object({
   grantedHours: z.coerce.number().int().min(1).max(168).optional(),
 });
 
+// ── App settings (admin-tunable knobs) ─────────────────────────────────────
+
+export const updateQuickSearchLimitSchema = z.object({
+  limit: z.coerce.number().int().min(0, "Cannot be negative").max(24, "24 at most"),
+});
+export type UpdateQuickSearchLimitInput = z.infer<typeof updateQuickSearchLimitSchema>;
+
 export type CreateCaseTypeInput = z.infer<typeof createCaseTypeSchema>;
 export type UpdateCaseTypeInput = z.infer<typeof updateCaseTypeSchema>;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
