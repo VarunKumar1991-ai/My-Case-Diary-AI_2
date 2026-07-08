@@ -8,7 +8,7 @@
 export const en = {
   app: {
     name: "My Case Diary AI",
-    tagline: "Draft. Review. Submit with confidence — before it ever reaches CCTNS.",
+    tagline: "Draft, Review, & Submit with confidence — before it ever reaches CCTNS.",
   },
   errorBoundary: {
     heading: "Something broke on this screen",
