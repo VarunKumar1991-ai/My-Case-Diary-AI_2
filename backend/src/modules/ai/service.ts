@@ -21,15 +21,6 @@ export interface CaseDiarySummary {
   summary: string;
 }
 
-const SYSTEM_PROMPT = [
-  "आप एक पुलिस केस-डायरी सहायक हैं। आपको एक मुकदमे (FIR) की केस डायरियों का पाठ दिया जाएगा।",
-  "इनका संक्षिप्त, तथ्यपरक सारांश शुद्ध हिंदी में दें, इन नियमों के साथ:",
-  "- केवल दिए गए पाठ के आधार पर लिखें; कोई नई बात, धारा, नाम या तिथि स्वयं न जोड़ें।",
-  "- घटनाक्रम, अब तक की गई विवेचना/कार्रवाई, और वर्तमान स्थिति क्रमवार बताएँ।",
-  "- यदि पाठ में जानकारी अधूरी हो तो वैसा ही लिखें; अनुमान न लगाएँ।",
-  "सारांश संक्षिप्त और बिंदुवार रखें।",
-].join("\n");
-
 /**
  * Phase-1 AI feature: summarize a whole मुकदमा (FIR). Gathers exactly the case
  * diaries under this FIR that the caller is allowed to see (visibility-scoped),
@@ -80,10 +71,12 @@ export async function summarizeCaseDiaryFir(
 
   const provider = getLlmProvider();
   let summary: string;
-  const prompt = `${header}${corpus}\n\n\n\n ऊपर दिए गए मुकदमे की सभी केस डायरियों का सारांश दें।`;
+  // System + user-instruction prompts come from ai-prompts.env (editable data
+  // file), not from code — see config.ai.
+  const prompt = `${header}${corpus}\n\n\n\n ${config.ai.summaryUserInstruction}`;
   try {
     summary = await provider.complete({
-      system: SYSTEM_PROMPT,
+      system: config.ai.summarySystemPrompt,
       prompt,
       maxTokens: config.ai.maxTokens,
     });

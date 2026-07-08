@@ -1,4 +1,11 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+
+// Base env, then the editable prompt file (a plain key=value data file — NOT
+// code — so prompts can be changed without any risk of breaking source). Real
+// .env / Render-dashboard values still win, since dotenv never overrides an
+// already-set variable.
+dotenv.config();
+dotenv.config({ path: "ai-prompts.env" });
 
 function required(name: string): string {
   const value = process.env[name];
@@ -20,6 +27,19 @@ const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax") as "lax" | "none" | "st
 // Gemini are wired; "stub" is a keyless local/dev echo — same idea as
 // ConsoleOtpSender, so the AI features stay runnable without any credentials).
 const aiProvider = (process.env.AI_PROVIDER ?? "claude") as "claude" | "gemini" | "stub";
+
+// Default prompts (used when ai-prompts.env / env doesn't set them). Overridable
+// entirely from ai-prompts.env — see that file. `\n` in the env value becomes a
+// real newline, so multi-line prompts work as single-line quoted values there.
+const DEFAULT_SUMMARY_SYSTEM = [
+  "आप एक पुलिस केस-डायरी सहायक हैं। आपको एक मुकदमे (FIR) की केस डायरियों का पाठ दिया जाएगा।",
+  "इनका संक्षिप्त, तथ्यपरक सारांश शुद्ध हिंदी में दें, इन नियमों के साथ:",
+  "- केवल दिए गए पाठ के आधार पर लिखें; कोई नई बात, धारा, नाम या तिथि स्वयं न जोड़ें।",
+  "- घटनाक्रम, अब तक की गई विवेचना/कार्रवाई, और वर्तमान स्थिति क्रमवार बताएँ।",
+  "- यदि पाठ में जानकारी अधूरी हो तो वैसा ही लिखें; अनुमान न लगाएँ।",
+  "सारांश संक्षिप्त और बिंदुवार रखें।",
+].join("\n");
+const DEFAULT_SUMMARY_INSTRUCTION = "ऊपर दिए गए मुकदमे की सभी केस डायरियों का सारांश दें।";
 
 export const config = {
   port: int("PORT", 4000),
@@ -74,6 +94,10 @@ export const config = {
       model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
     },
     maxTokens: int("AI_MAX_TOKENS", 5000),
+    // Prompts live in ai-prompts.env (editable data file), not in code. `\n` in
+    // the value is turned into a real newline so multi-line prompts stay one line.
+    summarySystemPrompt: (process.env.AI_SUMMARY_SYSTEM_PROMPT ?? DEFAULT_SUMMARY_SYSTEM).replace(/\\n/g, "\n"),
+    summaryUserInstruction: (process.env.AI_SUMMARY_USER_INSTRUCTION ?? DEFAULT_SUMMARY_INSTRUCTION).replace(/\\n/g, "\n"),
   },
   cors: {
     allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:5173")
