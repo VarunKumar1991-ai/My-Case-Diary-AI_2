@@ -63,7 +63,7 @@ const EMPTY_INV: InvForm = {
  * (CD-001). Lives in the sidebar so it's reachable from anywhere; on success it
  * navigates to the new diary's editor.
  */
-export function NewInvestigationDialog({ className }: { className?: string }) {
+export function NewInvestigationDialog({ className, collapsed }: { className?: string; collapsed?: boolean }) {
   const strings = useStrings();
   const navigate = useNavigate();
 
@@ -144,18 +144,21 @@ export function NewInvestigationDialog({ className }: { className?: string }) {
 
   return (
     <>
-      {/* Styled to match the sidebar nav links (e.g. "Home") so the left panel stays uniform. */}
+      {/* Styled to match the sidebar nav links (e.g. "Home") so the left panel stays
+          uniform — collapses to an icon-only button when the sidebar is a rail. */}
       <Button
         variant="ghost"
+        title={strings.home.startNewInvestigation}
         className={cn(
-          "h-auto w-full justify-start gap-3 rounded-md px-3 py-2 text-sm font-medium",
+          "h-auto w-full rounded-md py-2 text-sm font-medium",
           "text-muted-foreground hover:bg-secondary hover:text-foreground",
+          collapsed ? "justify-center px-0" : "justify-start gap-3 px-3",
           className,
         )}
         onClick={openDialog}
       >
-        <PlusIcon className="size-4" />
-        {strings.home.startNewInvestigation}
+        <PlusIcon className="size-4 shrink-0" />
+        {!collapsed && strings.home.startNewInvestigation}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

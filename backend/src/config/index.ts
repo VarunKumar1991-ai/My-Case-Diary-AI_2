@@ -16,6 +16,11 @@ function int(name: string, fallback: number): number {
 
 const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax") as "lax" | "none" | "strict";
 
+// One LLM backend is active at a time, chosen by AI_PROVIDER (both Claude and
+// Gemini are wired; "stub" is a keyless local/dev echo — same idea as
+// ConsoleOtpSender, so the AI features stay runnable without any credentials).
+const aiProvider = (process.env.AI_PROVIDER ?? "claude") as "claude" | "gemini" | "stub";
+
 export const config = {
   port: int("PORT", 4000),
   isProduction: process.env.NODE_ENV === "production",
@@ -49,6 +54,26 @@ export const config = {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken: process.env.TWILIO_AUTH_TOKEN ?? "",
     from: process.env.TWILIO_WHATSAPP_FROM ?? "whatsapp:+14155238886",
+  },
+  ai: {
+    // Which single provider is used. Both are integrated; only the selected one runs.
+    provider: aiProvider,
+    // Feature is usable when the keyless stub is selected, or the chosen real
+    // provider has its API key set (mirrors email/whatsapp gating above).
+    enabled:
+      aiProvider === "stub" ||
+      (aiProvider === "claude" && Boolean(process.env.ANTHROPIC_API_KEY)) ||
+      (aiProvider === "gemini" && Boolean(process.env.GEMINI_API_KEY)),
+    claude: {
+      apiKey: process.env.ANTHROPIC_API_KEY ?? "",
+      // Default per Anthropic guidance; override to claude-sonnet-5 / claude-haiku-4-5 for lower cost.
+      model: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
+    },
+    gemini: {
+      apiKey: process.env.GEMINI_API_KEY ?? "",
+      model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+    },
+    maxTokens: int("AI_MAX_TOKENS", 5000),
   },
   cors: {
     allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:5173")

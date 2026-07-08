@@ -100,7 +100,18 @@ export const caseDiariesApi = {
 
   /** FIR-wide share log: which CD went to which officer and when (owner-only). */
   getShareLog: (id: string) => api.get<ShareLog>(`/case-diaries/${id}/share-log`),
+
+  /** Phase-1 AI: a Hindi summary of this मुकदमा's readable case diaries. */
+  aiSummary: (id: string) => api.post<CaseDiarySummary>(`/case-diaries/${id}/ai-summary`),
 };
+
+export interface CaseDiarySummary {
+  firNo: string;
+  provider: string;
+  model: string;
+  diaryCount: number;
+  summary: string;
+}
 
 export interface ShareLogEntry {
   diaryId: string;

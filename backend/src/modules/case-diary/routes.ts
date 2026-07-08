@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import { otpRateLimiter } from "../../middleware/rateLimiter.js";
 import { asyncHandler } from "../../shared/asyncHandler.js";
+import { postAiSummary } from "../ai/controller.js";
 import { postCaseDiaryExport } from "../export/controller.js";
 import { getCaseDiariesSearch, getSimilarCaseDiaries } from "../search/controller.js";
 import {
@@ -43,6 +44,10 @@ caseDiaryRouter.get("/case-diaries/:id/similar", asyncHandler(getSimilarCaseDiar
 
 // Owned by the `export` module (§6.6) — same "extra segment" reasoning as `:id/similar`.
 caseDiaryRouter.post("/case-diaries/:id/export", asyncHandler(postCaseDiaryExport));
+
+// Owned by the `ai` module (Phase-1) — FIR-wide AI summary; `:id/ai-summary` is
+// an unambiguous extra segment relative to `:id`.
+caseDiaryRouter.post("/case-diaries/:id/ai-summary", asyncHandler(postAiSummary));
 
 caseDiaryRouter.post(
   "/case-diaries/:id/visibility/request-otp",

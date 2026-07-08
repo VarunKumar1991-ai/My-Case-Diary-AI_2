@@ -11,6 +11,7 @@ import {
   caseDiariesApi,
   type CaseDiary,
   type CaseDiaryHeaderInput,
+  type CaseDiarySummary,
   type ShareLog,
 } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
@@ -296,6 +297,9 @@ export function DiaryEditorPage() {
   const [alreadyPublicOpen, setAlreadyPublicOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLogOpen, setShareLogOpen] = useState(false);
+  const [aiSummary, setAiSummary] = useState<CaseDiarySummary | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   function persist() {
     if (!diary || !editor) return;
@@ -563,6 +567,20 @@ export function DiaryEditorPage() {
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
       setDeleting(false);
+    }
+  }
+
+  async function handleSummarize() {
+    if (!diary) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiSummary(null);
+    try {
+      setAiSummary(await caseDiariesApi.aiSummary(diary.id));
+    } catch (err) {
+      setAiError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -967,9 +985,30 @@ export function DiaryEditorPage() {
               <SparklesIcon className="size-3.5" />
               {strings.editor.aiAssistHeading}
             </p>
-            <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-              {strings.editor.aiAssistComingSoon}
-            </div>
+
+            {!diary ? (
+              <p className="text-xs text-muted-foreground">{strings.editor.notYetSaved}</p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">{strings.editor.aiSummaryHint}</p>
+                <Button variant="outline" size="sm" onClick={() => void handleSummarize()} disabled={aiLoading}>
+                  <SparklesIcon className="mr-1 size-3.5" />
+                  {aiLoading ? strings.editor.aiSummarizing : strings.editor.aiSummarize}
+                </Button>
+
+                {aiError && <p className="text-xs text-destructive">{aiError}</p>}
+
+                {aiSummary && (
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <p className="whitespace-pre-wrap text-xs text-foreground">{aiSummary.summary}</p>
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      {strings.editor.aiPoweredBy} {aiSummary.provider} · {aiSummary.model} · {aiSummary.diaryCount}{" "}
+                      {strings.home.caseDiariesCount}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </aside>
       </div>
