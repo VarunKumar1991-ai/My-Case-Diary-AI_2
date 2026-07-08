@@ -18,6 +18,11 @@ const QUICK_SEARCH_LIMIT_KEY = "home_quick_search_limit";
 export const DEFAULT_QUICK_SEARCH_LIMIT = 6;
 export const MAX_QUICK_SEARCH_LIMIT = 24;
 
+// Which case types are offered as quick-search chips, as an ordered list of
+// case-type ids. Empty (the default) means "all active case types" — so the
+// feature keeps working before an admin has curated a selection.
+const QUICK_SEARCH_CASE_TYPE_IDS_KEY = "home_quick_search_case_type_ids";
+
 async function readSetting(key: string): Promise<string | null> {
   const [row] = await db.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.key, key)).limit(1);
   return row?.value ?? null;
@@ -43,4 +48,22 @@ export async function getQuickSearchLimit(): Promise<number> {
 export async function setQuickSearchLimit(limit: number): Promise<void> {
   const clamped = Math.min(Math.max(Math.trunc(limit), 0), MAX_QUICK_SEARCH_LIMIT);
   await writeSetting(QUICK_SEARCH_LIMIT_KEY, String(clamped));
+}
+
+/** Admin-curated ordered case-type ids to offer as chips; `[]` means "all active". */
+export async function getQuickSearchCaseTypeIds(): Promise<string[]> {
+  const raw = await readSetting(QUICK_SEARCH_CASE_TYPE_IDS_KEY);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setQuickSearchCaseTypeIds(ids: string[]): Promise<void> {
+  // De-duplicate while preserving order; store as JSON.
+  const unique = [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+  await writeSetting(QUICK_SEARCH_CASE_TYPE_IDS_KEY, JSON.stringify(unique));
 }

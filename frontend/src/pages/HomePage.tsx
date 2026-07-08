@@ -31,9 +31,9 @@ export function HomePage() {
   const [results, setResults] = useState<CaseDiary[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // How many quick-search chips to show — admin-tuned (§Admin ▸ Quick search).
-  // `null` while loading so nothing flashes before the real count arrives.
-  const [quickLimit, setQuickLimit] = useState<number | null>(null);
+  // Quick-search chip labels — fully resolved by the server from the admin's
+  // choices (which case types + how many). Empty until loaded, so nothing flashes.
+  const [quickSearchChips, setQuickSearchChips] = useState<string[]>([]);
   // FIR (मुकदमा) numbers whose case-diary list is currently expanded. Every group
   // starts collapsed — only the मुकदमा bars show until the officer clicks one.
   const [expandedFirs, setExpandedFirs] = useState<Set<string>>(new Set());
@@ -69,24 +69,17 @@ export function HomePage() {
         // Quick-search chips are a nicety on top of the search box — degrade silently if the lookup fails.
       });
     lookupsApi
-      .getQuickSearchConfig()
-      .then(({ limit }) => {
-        if (!cancelled) setQuickLimit(limit);
+      .getQuickSearchChips()
+      .then(({ chips }) => {
+        if (!cancelled) setQuickSearchChips(chips);
       })
       .catch(() => {
-        if (!cancelled) setQuickLimit(0); // hide chips if the config read fails
+        if (!cancelled) setQuickSearchChips([]); // hide chips if the config read fails
       });
     return () => {
       cancelled = true;
     };
   }, []);
-
-  // The chips are the active case-type taxonomy (admin-managed), capped to the
-  // admin-set count. Name-ordered from the lookup; `quickLimit` decides how many.
-  const quickSearchChips = useMemo(
-    () => (quickLimit === null ? [] : caseTypes.slice(0, quickLimit).map((c) => c.name)),
-    [caseTypes, quickLimit],
-  );
 
   const caseTypeNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -193,7 +186,8 @@ export function HomePage() {
                 type="button"
                 onClick={() => void runSearch(label)}
                 disabled={searching}
-                className="inline-flex items-center rounded-lg bg-[#4ade80] px-3 py-1.5 text-sm font-medium text-emerald-950 shadow-xs transition-colors hover:bg-[#22c55e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+                // Sized/coloured to match the portal-wide Public badge (VisibilityBadge).
+                className="inline-flex w-fit shrink-0 items-center justify-center rounded-full bg-green-400 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-green-950 transition-colors hover:bg-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
               >
                 {label}
               </button>

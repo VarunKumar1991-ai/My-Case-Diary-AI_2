@@ -12,7 +12,7 @@ import {
   listUsersQuerySchema,
   updateCaseTypeSchema,
   updateDesignationSchema,
-  updateQuickSearchLimitSchema,
+  updateQuickSearchSettingsSchema,
 } from "./dto.js";
 import {
   approvePrivateAccessRequest,
@@ -23,13 +23,13 @@ import {
   deactivateCaseType,
   deactivateDesignation,
   denyPrivateAccessRequest,
-  getQuickSearchLimit,
+  getQuickSearchSettings,
   listCaseTypes,
   listDesignations,
   listPrivateAccessRequests,
   listUsers,
   requestPrivateAccess,
-  setQuickSearchLimit,
+  setQuickSearchSettings,
   unblockUser,
   updateCaseType,
   updateDesignation,
@@ -104,15 +104,15 @@ export async function deleteDesignationHandler(req: Request, res: Response): Pro
 
 // ── App settings ───────────────────────────────────────────────────────────
 
-export async function getQuickSearchSettings(req: Request, res: Response): Promise<void> {
+export async function getQuickSearchSettingsHandler(req: Request, res: Response): Promise<void> {
   const admin = requireUser(req);
-  res.json({ limit: await getQuickSearchLimit(admin) });
+  res.json(await getQuickSearchSettings(admin));
 }
 
 export async function putQuickSearchSettings(req: Request, res: Response): Promise<void> {
   const admin = requireUser(req);
-  const { limit } = updateQuickSearchLimitSchema.parse(req.body);
-  res.json({ limit: await setQuickSearchLimit(admin, limit, buildContext(req)) });
+  const input = updateQuickSearchSettingsSchema.parse(req.body);
+  res.json(await setQuickSearchSettings(admin, input, buildContext(req)));
 }
 
 // ── User governance ────────────────────────────────────────────────────────

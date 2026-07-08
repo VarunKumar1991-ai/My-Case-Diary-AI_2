@@ -254,11 +254,14 @@ export const en = {
     },
     quickSearch: {
       intro:
-        "Quick-search chips appear below the Home search box — one per active case type. Set how many of them to show. Set 0 to hide the chips entirely.",
+        "Quick-search chips appear below the Home search box. Choose which case types to offer and how many chips to show.",
       countLabel: "Number of chips to show",
-      countHint: "0–24. The chips are drawn from the active case types, in name order.",
+      countHint: "0–24. Caps how many chips appear. Set 0 to hide the chips entirely.",
+      chipsLabel: "Case types to show as chips",
+      chipsHint: "Tick the case types to offer. If none are ticked, every active case type is used (in name order).",
+      noCaseTypes: "No active case types yet — add some in the Case types tab.",
       invalid: "Enter a whole number between 0 and 24.",
-      saved: "Quick-search setting saved.",
+      saved: "Quick-search settings saved.",
     },
     taxonomy: {
       caseTypesIntro:

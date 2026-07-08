@@ -1,6 +1,7 @@
 import { and, asc, eq, ilike, ne, or } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { caseTypes, designations, users } from "../../db/schema.js";
+import { getQuickSearchCaseTypeIds, getQuickSearchLimit } from "../settings/service.js";
 import type { LookupCaseType, LookupDesignation, LookupOfficer } from "./dto.js";
 
 /**
@@ -20,6 +21,29 @@ export async function listActiveCaseTypes(): Promise<LookupCaseType[]> {
     .from(caseTypes)
     .where(eq(caseTypes.isActive, true))
     .orderBy(asc(caseTypes.name));
+}
+
+/**
+ * The quick-search chip labels the Home page renders below its search box.
+ * Resolves the two admin knobs into a final ordered list of case-type NAMES:
+ *   • which chips  — the admin-curated case-type ids (empty ⇒ all active), and
+ *   • how many     — the count cap.
+ * Only ACTIVE case types can appear (a curated id that was later deactivated is
+ * silently dropped), and the curated order is preserved.
+ */
+export async function getQuickSearchChips(): Promise<string[]> {
+  const [limit, curatedIds] = await Promise.all([getQuickSearchLimit(), getQuickSearchCaseTypeIds()]);
+  if (limit <= 0) return [];
+
+  const active = await listActiveCaseTypes();
+  let names: string[];
+  if (curatedIds.length > 0) {
+    const nameById = new Map(active.map((c) => [c.id, c.name]));
+    names = curatedIds.map((id) => nameById.get(id)).filter((name): name is string => Boolean(name));
+  } else {
+    names = active.map((c) => c.name);
+  }
+  return names.slice(0, limit);
 }
 
 export async function listActiveDesignations(): Promise<LookupDesignation[]> {

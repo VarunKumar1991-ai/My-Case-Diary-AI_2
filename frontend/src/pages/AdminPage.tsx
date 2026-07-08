@@ -315,23 +315,28 @@ function TaxonomyDialogForm({ state, addLabel, editLabel, onCreate, onUpdate, on
 const QUICK_SEARCH_MAX = 24;
 
 /**
- * Lets the admin decide how many quick-search chips the Home page shows below
- * the search box. The chips themselves are the active case types (managed in the
- * "Case types" tab); this only caps how many of them appear. 0 hides them.
+ * Lets the admin control the Home page's quick-search chips: how many show
+ * (the count cap) AND which case types are offered (a checklist). The chips are
+ * always active case types (managed in the "Case types" tab). With nothing
+ * ticked, every active case type is eligible; a count of 0 hides the chips.
  */
 function QuickSearchSection() {
   const strings = useStrings();
   const [limit, setLimit] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeCaseTypes, setActiveCaseTypes] = useState<TaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    adminApi
-      .getQuickSearchLimit()
-      .then(({ limit: value }) => {
-        if (!cancelled) setLimit(String(value));
+    Promise.all([adminApi.getQuickSearchSettings(), adminApi.listCaseTypes()])
+      .then(([settings, { caseTypes }]) => {
+        if (cancelled) return;
+        setLimit(String(settings.limit));
+        setSelectedIds(new Set(settings.caseTypeIds));
+        setActiveCaseTypes(caseTypes.filter((c) => c.isActive));
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
@@ -344,6 +349,15 @@ function QuickSearchSection() {
     };
   }, [strings.common.somethingWentWrong]);
 
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const parsed = Number.parseInt(limit, 10);
@@ -353,10 +367,13 @@ function QuickSearchSection() {
     }
     setSaving(true);
     setError(null);
+    // Preserve the on-screen (case-types list) order for the saved selection.
+    const caseTypeIds = activeCaseTypes.filter((c) => selectedIds.has(c.id)).map((c) => c.id);
     adminApi
-      .setQuickSearchLimit(parsed)
-      .then(({ limit: saved }) => {
-        setLimit(String(saved));
+      .setQuickSearchSettings({ limit: parsed, caseTypeIds })
+      .then((saved) => {
+        setLimit(String(saved.limit));
+        setSelectedIds(new Set(saved.caseTypeIds));
         toast.success(strings.admin.quickSearch.saved);
       })
       .catch((err: unknown) => setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong))
@@ -372,8 +389,8 @@ function QuickSearchSection() {
       ) : (
         <Card>
           <CardContent className="p-4">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:max-w-sm">
-              <div className="flex flex-col gap-1.5">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1.5 sm:max-w-sm">
                 <Label htmlFor="quick-search-limit">{strings.admin.quickSearch.countLabel}</Label>
                 <Input
                   id="quick-search-limit"
@@ -384,6 +401,31 @@ function QuickSearchSection() {
                   onChange={(e) => setLimit(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">{strings.admin.quickSearch.countHint}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>{strings.admin.quickSearch.chipsLabel}</Label>
+                <p className="text-xs text-muted-foreground">{strings.admin.quickSearch.chipsHint}</p>
+                {activeCaseTypes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{strings.admin.quickSearch.noCaseTypes}</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {activeCaseTypes.map((caseType) => (
+                      <label
+                        key={caseType.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary"
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 shrink-0 accent-green-500"
+                          checked={selectedIds.has(caseType.id)}
+                          onChange={() => toggleId(caseType.id)}
+                        />
+                        <span className="truncate">{caseType.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}

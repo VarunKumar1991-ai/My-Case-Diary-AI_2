@@ -7,7 +7,9 @@ import { generateId } from "../../shared/id.js";
 import type { RequestContext } from "../../shared/http.js";
 import { recordAuditEntry } from "../audit/service.js";
 import {
+  getQuickSearchCaseTypeIds as readQuickSearchCaseTypeIds,
   getQuickSearchLimit as readQuickSearchLimit,
+  setQuickSearchCaseTypeIds as writeQuickSearchCaseTypeIds,
   setQuickSearchLimit as writeQuickSearchLimit,
 } from "../settings/service.js";
 import { toPublicUser, type PublicUser } from "../user/service.js";
@@ -51,26 +53,35 @@ function requireAdgTechnical(user: AuthenticatedUser): void {
 
 // ── App settings (admin-tunable knobs) ─────────────────────────────────────
 
-/** How many quick-search chips the Home page shows (admin-set). */
-export async function getQuickSearchLimit(admin: AuthenticatedUser): Promise<number> {
-  requireAdmin(admin);
-  return readQuickSearchLimit();
+export interface QuickSearchSettings {
+  /** How many chips the Home page shows. */
+  limit: number;
+  /** Ordered case-type ids chosen as chips; [] means "all active case types". */
+  caseTypeIds: string[];
 }
 
-export async function setQuickSearchLimit(
-  admin: AuthenticatedUser,
-  limit: number,
-  context: RequestContext,
-): Promise<number> {
+/** Current Home quick-search settings (count + which case types), admin-only. */
+export async function getQuickSearchSettings(admin: AuthenticatedUser): Promise<QuickSearchSettings> {
   requireAdmin(admin);
-  await writeQuickSearchLimit(limit);
-  const saved = await readQuickSearchLimit();
+  const [limit, caseTypeIds] = await Promise.all([readQuickSearchLimit(), readQuickSearchCaseTypeIds()]);
+  return { limit, caseTypeIds };
+}
+
+export async function setQuickSearchSettings(
+  admin: AuthenticatedUser,
+  input: QuickSearchSettings,
+  context: RequestContext,
+): Promise<QuickSearchSettings> {
+  requireAdmin(admin);
+  await writeQuickSearchLimit(input.limit);
+  await writeQuickSearchCaseTypeIds(input.caseTypeIds);
+  const saved = await getQuickSearchSettings(admin);
   await recordAuditEntry({
     actorId: admin.id,
-    action: "settings.quick_search_limit.update",
+    action: "settings.quick_search.update",
     resourceType: "app_setting",
-    resourceId: "home_quick_search_limit",
-    metadata: { limit: saved },
+    resourceId: "home_quick_search",
+    metadata: { limit: saved.limit, caseTypeIds: saved.caseTypeIds },
     ip: context.ip,
     userAgent: context.userAgent,
   });

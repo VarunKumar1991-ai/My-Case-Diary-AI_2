@@ -55,6 +55,13 @@ export interface PrivateAccessRequest {
   createdAt: string;
 }
 
+export interface QuickSearchSettings {
+  /** How many chips the Home page shows. */
+  limit: number;
+  /** Ordered case-type ids chosen as chips; [] means "all active case types". */
+  caseTypeIds: string[];
+}
+
 export interface AuditLogEntry {
   id: string;
   actorId: string | null;
@@ -98,6 +105,8 @@ export const adminApi = {
 
   listAuditLogs: (limit?: number) => api.get<{ logs: AuditLogEntry[] }>("/admin/audit-logs", { limit }),
 
-  getQuickSearchLimit: () => api.get<{ limit: number }>("/admin/settings/quick-search"),
-  setQuickSearchLimit: (limit: number) => api.put<{ limit: number }>("/admin/settings/quick-search", { limit }),
+  getQuickSearchSettings: () =>
+    api.get<QuickSearchSettings>("/admin/settings/quick-search"),
+  setQuickSearchSettings: (settings: QuickSearchSettings) =>
+    api.put<QuickSearchSettings>("/admin/settings/quick-search", settings),
 };

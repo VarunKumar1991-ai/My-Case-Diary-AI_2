@@ -51,10 +51,12 @@ export const approvePrivateAccessRequestSchema = z.object({
 
 // ── App settings (admin-tunable knobs) ─────────────────────────────────────
 
-export const updateQuickSearchLimitSchema = z.object({
+export const updateQuickSearchSettingsSchema = z.object({
   limit: z.coerce.number().int().min(0, "Cannot be negative").max(24, "24 at most"),
+  // Ordered case-type ids to show as chips; [] means "all active case types".
+  caseTypeIds: z.array(z.string().trim().min(1)).max(50).default([]),
 });
-export type UpdateQuickSearchLimitInput = z.infer<typeof updateQuickSearchLimitSchema>;
+export type UpdateQuickSearchSettingsInput = z.infer<typeof updateQuickSearchSettingsSchema>;
 
 export type CreateCaseTypeInput = z.infer<typeof createCaseTypeSchema>;
 export type UpdateCaseTypeInput = z.infer<typeof updateCaseTypeSchema>;
