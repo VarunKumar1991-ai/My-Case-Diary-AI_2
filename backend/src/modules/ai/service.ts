@@ -80,8 +80,7 @@ export async function summarizeCaseDiaryFir(
 
   const provider = getLlmProvider();
   let summary: string;
-  const prompt = `${header}${corpus}\n\n\n\n ऊपर दिए गए मुकदमे की सभी केस डायरियों का सारांश दें।`; 
-  console.log(prompt);
+  const prompt = `${header}${corpus}\n\n\n\n ऊपर दिए गए मुकदमे की सभी केस डायरियों का सारांश दें।`;
   try {
     summary = await provider.complete({
       system: SYSTEM_PROMPT,
