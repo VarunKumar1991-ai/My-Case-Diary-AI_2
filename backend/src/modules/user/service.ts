@@ -22,6 +22,8 @@ export interface PublicUser {
   accountStatus: "ACTIVE" | "BLOCKED";
   /** Account is still on the default password — the UI must force a change. */
   mustChangePassword: boolean;
+  /** Diary-body font size in px, or null if the officer has never set one. */
+  editorFontSize: number | null;
 }
 
 export function toPublicUser(user: typeof users.$inferSelect): PublicUser {
@@ -34,6 +36,7 @@ export function toPublicUser(user: typeof users.$inferSelect): PublicUser {
     role: user.role,
     accountStatus: user.accountStatus,
     mustChangePassword: user.mustChangePassword,
+    editorFontSize: user.editorFontSize,
   };
 }
 
@@ -56,13 +59,14 @@ export async function updateOwnProfile(
   input: UpdateProfileInput,
   context: RequestContext,
 ): Promise<PublicUser> {
-  const updates: Partial<{ name: string; designation: string }> = {};
+  const updates: Partial<{ name: string; designation: string; editorFontSize: number }> = {};
   if (input.name !== undefined) updates.name = input.name.trim();
   if (input.designation !== undefined) {
     const designation = input.designation.trim();
     await assertDesignationUsable(designation);
     updates.designation = designation;
   }
+  if (input.editorFontSize !== undefined) updates.editorFontSize = input.editorFontSize;
 
   const [user] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
   if (!user) throw new NotFoundError("User not found");

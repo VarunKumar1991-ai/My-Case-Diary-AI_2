@@ -15,6 +15,8 @@ export interface CurrentUser {
   mobile: string | null;
   /** Still on the default password — the app forces a change before anything else. */
   mustChangePassword: boolean;
+  /** Diary-body font size in px, or null if never set (editor uses its default). */
+  editorFontSize: number | null;
 }
 
 interface AuthContextValue {

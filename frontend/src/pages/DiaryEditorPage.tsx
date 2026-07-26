@@ -16,6 +16,7 @@ import {
 } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOfficer, type LookupOption } from "@/apis/lookups";
+import { profileApi } from "@/apis/profile";
 import { Badge } from "@/components/ui/badge";
 import { VisibilityBadge } from "@/components/VisibilityBadge";
 import { Button } from "@/components/ui/button";
@@ -41,31 +42,21 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { type Strings } from "@/i18n/en";
 import { useStrings } from "@/i18n";
+import { COMPACT_FIELD, COMPACT_FIELD_GRID } from "@/lib/formStyles";
 import { cn, formatDateTime, toDateDisplay } from "@/lib/utils";
 
 const SAVE_DEBOUNCE_MS = 1000;
 
 // Diary Body font-size control (MS-Word-style): a dropdown of common sizes plus
 // −/+ steppers. The chosen size applies uniformly to the whole body (set on the
-// editor's root element) and is persisted inside the body JSON under `_fontSize`.
+// editor's root element) and is saved as a *per-officer* preference on the user
+// record — so it survives switching diaries, signing out, and changing device.
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 72;
 const FONT_SIZE_OPTIONS = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48];
-const FONT_SIZE_KEY = "_fontSize";
-
-/** Reads a persisted `_fontSize` off a diary body (if present), else the default. */
-function readFontSize(body: unknown): number {
-  const raw = (body as Record<string, unknown> | null)?.[FONT_SIZE_KEY];
-  return typeof raw === "number" && raw >= MIN_FONT_SIZE && raw <= MAX_FONT_SIZE
-    ? raw
-    : DEFAULT_FONT_SIZE;
-}
-
-/** Merges the current font size into the body JSON so it round-trips with the document. */
-function bodyWithFontSize(doc: JSONContent, size: number): Record<string, unknown> {
-  return { ...doc, [FONT_SIZE_KEY]: size };
-}
+/** How long to wait before writing a font-size change back to the server. */
+const FONT_SIZE_SAVE_DEBOUNCE_MS = 600;
 
 const EDITOR_CONTENT_CLASS =
   "min-h-[40svh] font-mono text-sm leading-relaxed text-user-text focus:outline-none " +
@@ -224,7 +215,7 @@ function HeaderField({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn(COMPACT_FIELD, className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
@@ -249,7 +240,7 @@ export function DiaryEditorPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const strings = useStrings();
-  const { user } = useAuth();
+  const { user, refresh: refreshUser } = useAuth();
 
   const isNew = !id;
   const prefill = (location.state as PrefillState | null)?.prefill;
@@ -284,7 +275,10 @@ export function DiaryEditorPage() {
   const [similar, setSimilar] = useState<CaseDiary[] | null>(null);
 
   const [editorEmpty, setEditorEmpty] = useState(true);
-  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  // Seeded from the officer's saved preference; `user` may still be loading on
+  // first render, so the effect below syncs it once it arrives.
+  const [fontSize, setFontSize] = useState(user?.editorFontSize ?? DEFAULT_FONT_SIZE);
+  const fontSizeSaveTimer = useRef<number | null>(null);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -305,7 +299,7 @@ export function DiaryEditorPage() {
     if (!diary || !editor) return;
     setSaveStatus("saving");
     caseDiariesApi
-      .update(diary.id, { ...buildHeaderPayload(headerRef.current), body: bodyWithFontSize(editor.getJSON(), fontSize) })
+      .update(diary.id, { ...buildHeaderPayload(headerRef.current), body: editor.getJSON() })
       .then(({ caseDiary }) => {
         setDiary(caseDiary);
         setSaveStatus("saved");
@@ -331,11 +325,29 @@ export function DiaryEditorPage() {
     scheduleAutosave();
   }
 
-  /** Set the Diary Body font size (clamped) and persist it via autosave. */
+  /**
+   * Set the Diary Body font size (clamped) and remember it for this officer.
+   * The write is debounced so holding the −/+ steppers doesn't spam `PATCH /me`,
+   * and `refreshUser()` re-reads `GET /me` so the next diary opens at this size
+   * (§5: auth state is always derived from the server, never patched locally).
+   */
   function applyFontSize(next: number) {
     const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, Math.round(next)));
     setFontSize(clamped);
-    scheduleAutosave();
+
+    if (fontSizeSaveTimer.current) window.clearTimeout(fontSizeSaveTimer.current);
+    fontSizeSaveTimer.current = window.setTimeout(() => {
+      // Cleared before the request so the sync effect below is only suppressed
+      // while an adjustment is actually pending, not for the rest of the session.
+      fontSizeSaveTimer.current = null;
+      profileApi
+        .update({ editorFontSize: clamped })
+        .then(() => refreshUser())
+        .catch(() => {
+          // A failed preference save is not worth interrupting drafting for —
+          // the size still applies for this session.
+        });
+    }, FONT_SIZE_SAVE_DEBOUNCE_MS);
   }
 
   const editor = useEditor({
@@ -485,9 +497,19 @@ export function DiaryEditorPage() {
     const content = isProseMirrorDoc(diary.body) ? diary.body : "";
     editor.commands.setContent(content, { emitUpdate: false });
     setEditorEmpty(editor.isEmpty);
-    setFontSize(readFontSize(diary.body));
+    // Font size deliberately untouched here — it belongs to the officer, not the
+    // diary, so opening an older entry must not change their chosen size.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diary?.id, editor]);
+
+  // Adopt the saved preference once `GET /me` resolves (or when it changes in
+  // another tab), unless the officer is mid-adjustment in this one.
+  useEffect(() => {
+    if (user?.editorFontSize && !fontSizeSaveTimer.current) {
+      setFontSize(user.editorFontSize);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.editorFontSize]);
 
   const diaryId = diary?.id;
   const diaryFirNo = diary?.firNo;
@@ -544,7 +566,7 @@ export function DiaryEditorPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      const { caseDiary } = await caseDiariesApi.create({ ...buildHeaderPayload(header), body: bodyWithFontSize(editor.getJSON(), fontSize) });
+      const { caseDiary } = await caseDiariesApi.create({ ...buildHeaderPayload(header), body: editor.getJSON() });
       navigate(`/diary/${caseDiary.id}`, { replace: true });
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong);
@@ -753,7 +775,7 @@ export function DiaryEditorPage() {
         {/* Centre: header form + Tiptap body */}
         <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           <form
-            className="grid grid-cols-1 gap-4 border-b border-border p-6 sm:grid-cols-2"
+            className={cn("grid grid-cols-1 border-b border-border p-6 sm:grid-cols-2", COMPACT_FIELD_GRID)}
             onSubmit={isNew ? (event) => void handleCreate(event) : (event) => event.preventDefault()}
           >
             <HeaderField label="CD No." htmlFor="cdNo">
@@ -779,7 +801,7 @@ export function DiaryEditorPage() {
 
             <HeaderField label={strings.diary.fields.caseType} htmlFor="caseTypeId">
               <Select value={header.caseTypeId} onValueChange={(value) => updateHeader("caseTypeId", value)}>
-                <SelectTrigger id="caseTypeId" className="w-full">
+                <SelectTrigger id="caseTypeId" size="compact" className="w-full">
                   <SelectValue placeholder={strings.editor.selectCaseType} />
                 </SelectTrigger>
                 <SelectContent>
@@ -872,7 +894,7 @@ export function DiaryEditorPage() {
                 value={header.accusedName}
                 onChange={(e) => updateHeader("accusedName", e.target.value)}
                 maxLength={10000}
-                rows={4}
+                rows={3}
                 required={isNew}
               />
             </HeaderField>

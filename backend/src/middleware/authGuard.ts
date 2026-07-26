@@ -14,6 +14,8 @@ export interface AuthenticatedUser {
   email: string | null;
   mobile: string | null;
   mustChangePassword: boolean;
+  /** Diary-body font size preference — travels on `GET /me` so the editor can apply it. */
+  editorFontSize: number | null;
 }
 
 /**
@@ -61,6 +63,7 @@ export async function authGuard(req: Request, _res: Response, next: NextFunction
       email: user.email,
       mobile: user.mobile,
       mustChangePassword: user.mustChangePassword,
+      editorFontSize: user.editorFontSize,
     };
   } catch {
     next(new UnauthorizedError());

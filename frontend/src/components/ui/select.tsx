@@ -13,12 +13,12 @@ function SelectTrigger({
   children,
   size = "default",
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & { size?: "sm" | "default" }) {
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> & { size?: "sm" | "default" | "compact" }) {
   return (
     <SelectPrimitive.Trigger
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-2 rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground whitespace-nowrap shadow-xs outline-none transition-colors data-[placeholder]:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+        "flex w-fit items-center justify-between gap-2 rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground whitespace-nowrap shadow-xs outline-none transition-colors data-[placeholder]:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=compact]:h-[30px] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
         className,
       )}
       {...props}

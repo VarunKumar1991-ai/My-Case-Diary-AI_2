@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStrings } from "@/i18n";
+import { COMPACT_FIELD_GRID } from "@/lib/formStyles";
 import { cn, fromDateDisplay, fromDateTimeDisplay } from "@/lib/utils";
 
 interface InvForm {
@@ -169,9 +170,9 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
           </DialogHeader>
 
           <form id="inv-form" onSubmit={(e) => void handleStartInvestigation(e)}>
-            <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+            <div className={cn("grid grid-cols-1 py-1 sm:grid-cols-2", COMPACT_FIELD_GRID)}>
               {/* CD No */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-cdNo">{strings.diary.fields.caseDiaryNo}</Label>
                 <Input
                   id="inv-cdNo"
@@ -182,7 +183,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* CD Date */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-cdDate">{strings.home.investigationCdDate}</Label>
                 <Input
                   id="inv-cdDate"
@@ -195,10 +196,10 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Case Type */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="inv-caseType">{strings.diary.fields.caseType}</Label>
                 <Select value={form.caseTypeId} onValueChange={(v) => setField("caseTypeId", v)} required>
-                  <SelectTrigger id="inv-caseType">
+                  <SelectTrigger id="inv-caseType" size="compact" className="w-full">
                     <SelectValue placeholder={strings.editor.selectCaseType} />
                   </SelectTrigger>
                   <SelectContent>
@@ -212,7 +213,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* FIR No */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-firNo">{strings.diary.fields.firNo}</Label>
                 <Input
                   id="inv-firNo"
@@ -224,7 +225,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Under Section */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-underSection">{strings.diary.fields.underSection}</Label>
                 <Input
                   id="inv-underSection"
@@ -236,7 +237,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Police Station */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="inv-policeStation">{strings.diary.fields.policeStation}</Label>
                 <Input
                   id="inv-policeStation"
@@ -248,7 +249,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Incident Date & Time */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-incidentDT">{strings.diary.fields.incidentDateTime}</Label>
                 <Input
                   id="inv-incidentDT"
@@ -262,7 +263,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* FIR Registration Date & Time */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-firRegDT">{strings.diary.fields.firRegistrationDateTime}</Label>
                 <Input
                   id="inv-firRegDT"
@@ -276,7 +277,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Place of Incidence */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="inv-place">{strings.diary.fields.placeOfIncidence}</Label>
                 <Input
                   id="inv-place"
@@ -287,7 +288,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Plaintiff Name */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="inv-plaintiff">{strings.diary.fields.plaintiffName}</Label>
                 <Input
                   id="inv-plaintiff"
@@ -298,7 +299,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
               </div>
 
               {/* Accused Name */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="inv-accused">{strings.diary.fields.accusedName}</Label>
                 <Textarea
                   id="inv-accused"

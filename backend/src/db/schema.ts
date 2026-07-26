@@ -47,6 +47,10 @@ export const users = pgTable(
     // initial backfill or an admin reset). Every authenticated route is blocked
     // until the officer picks their own — see `authGuard`.
     mustChangePassword: boolean("must_change_password").notNull().default(false),
+    // Diary-body font size the officer last chose, in px. A per-user preference
+    // (not per-diary), so it follows them across diaries, sessions and devices.
+    // Null means "never set" — the editor falls back to its default.
+    editorFontSize: integer("editor_font_size"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
