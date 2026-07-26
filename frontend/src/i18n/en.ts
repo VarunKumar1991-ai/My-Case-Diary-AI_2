@@ -149,7 +149,7 @@ export const en = {
     firDiariesHeading: "Diaries for this FIR",
     newDiaryForFir: "Next Diary",
     noFirDiaries: "No other diaries yet for this FIR.",
-    saveBeforeFir: "Diaries for this FIR will appear here once you create the entry.",
+    saveBeforeFir: "Enter the FIR no. above to see the diaries already filed under it.",
     notYetSaved: "This becomes available once the case diary is created.",
     createDiary: "Create case diary",
     creating: "Creating…",

@@ -512,16 +512,20 @@ export function DiaryEditorPage() {
   }, [user?.editorFontSize]);
 
   const diaryId = diary?.id;
-  const diaryFirNo = diary?.firNo;
-  const firDiariesLoading = Boolean(diaryFirNo) && firDiaries === null;
+  // Which FIR the left panel lists. For a saved diary that's its own FIR; while
+  // drafting a new entry (the "Next Diary" flow) the diary doesn't exist yet, so
+  // it's whichever FIR the header points at — otherwise the officer would lose
+  // sight of the case's other diaries exactly when adding to it.
+  const activeFirNo = diary?.firNo ?? header.firNo.trim();
+  const firDiariesLoading = Boolean(activeFirNo) && firDiaries === null;
   const similarLoading = Boolean(diaryId) && similar === null;
 
   // ── Other diaries sharing this FIR (left panel) ───────────────────────────
   useEffect(() => {
-    if (!diaryFirNo) return;
+    if (!activeFirNo) return;
     let cancelled = false;
     caseDiariesApi
-      .list({ firNo: diaryFirNo, scope: "mine" })
+      .list({ firNo: activeFirNo, scope: "mine" })
       .then(({ caseDiaries }) => {
         if (!cancelled) setFirDiaries(caseDiaries);
       })
@@ -531,7 +535,7 @@ export function DiaryEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [diaryFirNo]);
+  }, [activeFirNo]);
 
   // ── Similar past cases (right panel — D7 `SimilarCaseService` seam) ───────
   useEffect(() => {
@@ -745,9 +749,9 @@ export function DiaryEditorPage() {
 
           <p className="text-xs tracking-wide text-muted-foreground uppercase">{strings.editor.firDiariesHeading}</p>
 
-          {!diary && <p className="text-xs text-muted-foreground">{strings.editor.saveBeforeFir}</p>}
+          {!activeFirNo && <p className="text-xs text-muted-foreground">{strings.editor.saveBeforeFir}</p>}
           {firDiariesLoading && <p className="text-xs text-muted-foreground">{strings.common.loading}</p>}
-          {diary && firDiaries !== null && firDiaries.length === 0 && (
+          {activeFirNo && firDiaries !== null && firDiaries.length === 0 && (
             <p className="text-xs text-muted-foreground">{strings.editor.noFirDiaries}</p>
           )}
 
