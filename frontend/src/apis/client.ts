@@ -65,15 +65,55 @@ function refreshAccessToken(): Promise<boolean> {
   return refreshPromise;
 }
 
+/**
+ * Statuses the API host itself returns while no app instance is answering —
+ * the backend waking from sleep, or a redeploy swapping instances. The request
+ * never reached the app, so retrying is safe even for a POST.
+ */
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+/** Backoff between gateway retries — ~12s total, enough to ride out a redeploy. */
+const GATEWAY_RETRY_DELAYS_MS = [2000, 4000, 6000];
+
 async function request<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const { method = "GET", body, query, raw } = options;
 
-  const response = await fetch(buildUrl(path, query), {
-    method,
-    credentials: "include",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const send = () =>
+    fetch(buildUrl(path, query), {
+      method,
+      credentials: "include",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  // Without this, the first sign-in after the backend has been idle (or during a
+  // deploy) fails for something that fixes itself seconds later. Note the host's
+  // error page carries no CORS headers, so a gateway failure usually reaches us
+  // as a thrown network error rather than a readable 502 — both are handled.
+  //
+  // Retrying is safe here because these failures mean no app instance answered;
+  // and the one request a duplicate would matter for (creating a case diary) is
+  // guarded by the `(owner, FIR, CD no.)` unique index, which 409s instead.
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt <= GATEWAY_RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, GATEWAY_RETRY_DELAYS_MS[attempt - 1]));
+    }
+    try {
+      response = await send();
+      if (!GATEWAY_STATUSES.has(response.status)) break;
+    } catch {
+      response = null; // network/CORS failure — nothing answered at all
+    }
+  }
+
+  if (!response) {
+    throw new ApiError(
+      0,
+      "SERVER_UNAVAILABLE",
+      "Could not reach the server. It may be starting up — please try again in a few seconds.",
+    );
+  }
 
   // The access token (JWT_ACCESS_TTL_MINUTES) expires well before the refresh
   // token — silently refresh once and retry so a short-lived access token
@@ -96,10 +136,15 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
 
   if (!response.ok) {
     const body = (payload as { error?: ApiErrorBody } | undefined)?.error;
+    // A gateway error still standing after the retries above means the server is
+    // genuinely not up yet — say so, rather than blaming something the officer did.
+    const fallbackMessage = GATEWAY_STATUSES.has(response.status)
+      ? "The server is still starting up. Please try again in a few seconds."
+      : "Something went wrong. Please try again.";
     throw new ApiError(
       response.status,
       body?.code ?? "UNKNOWN_ERROR",
-      body?.message ?? "Something went wrong. Please try again.",
+      body?.message ?? fallbackMessage,
       body?.details,
     );
   }
