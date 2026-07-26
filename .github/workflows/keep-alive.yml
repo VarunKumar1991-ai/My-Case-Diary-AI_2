@@ -1,0 +1,31 @@
+name: Keep backend awake
+
+# Render's free plan sleeps a service after 15 minutes without traffic, and the
+# next request then pays ~25s to wake it. These pings keep the backend warm
+# during working hours only — outside them it is allowed to sleep, which keeps
+# usage (~465 h/month) comfortably inside Render's 750 free instance-hours.
+on:
+  schedule:
+    # Working hours are 09:00–24:00 IST. GitHub cron only understands UTC
+    # (IST = UTC + 5:30), so the window 03:30–18:30 UTC splits across three lines.
+    - cron: "30,40,50 3 * * *" # 09:00–09:20 IST
+    - cron: "*/10 4-17 * * *" # 09:30–23:20 IST
+    - cron: "0,10,20,30 18 * * *" # 23:30–00:00 IST
+  # Adds a "Run workflow" button in the Actions tab, to wake the service on demand.
+  workflow_dispatch:
+
+# Never let two pings overlap, and never cancel one already in flight.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping /health
+        # `-f` fails the run on an HTTP error, so a broken backend surfaces as a
+        # red run rather than passing silently. The generous timeout covers a
+        # cold start; `/health` touches no database, so this stays cheap.
+        run: curl -fsS --max-time 90 https://my-case-diary-ai-2.onrender.com/health
