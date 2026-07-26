@@ -68,7 +68,7 @@ function bodyWithFontSize(doc: JSONContent, size: number): Record<string, unknow
 }
 
 const EDITOR_CONTENT_CLASS =
-  "min-h-[40svh] font-mono text-sm leading-relaxed text-foreground focus:outline-none " +
+  "min-h-[40svh] font-mono text-sm leading-relaxed text-user-text focus:outline-none " +
   "[&_p]:my-2 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold " +
   "[&_h2]:mt-3 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold " +
   "[&_ul]:my-2 [&_ul]:ml-5 [&_ul]:list-disc [&_ol]:my-2 [&_ol]:ml-5 [&_ol]:list-decimal " +
@@ -664,7 +664,7 @@ export function DiaryEditorPage() {
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <h1 className="font-mono text-lg font-semibold text-foreground">
+          <h1 className="font-mono text-lg font-semibold text-heading">
             {diary ? `${strings.diary.fields.firNo} - ${diary.firNo}` : strings.editor.newHeading}
           </h1>
           {diary && (

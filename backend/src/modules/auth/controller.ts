@@ -4,17 +4,23 @@ import { UnauthorizedError } from "../../shared/errors.js";
 import { ACCESS_COOKIE, REFRESH_COOKIE, verifyAccessToken } from "../../shared/jwt.js";
 import type { RequestContext } from "../../shared/http.js";
 import {
+  changePasswordSchema,
+  resetPasswordSchema,
+  signinPasswordSchema,
   signinRequestOtpSchema,
   signinVerifySchema,
   signupRequestOtpSchema,
   signupVerifySchema,
 } from "./dto.js";
 import {
+  changeOwnPassword,
   recordLogout,
   refreshSession,
   requestSigninOtp,
   requestSignupOtp,
+  resetPasswordWithCurrent,
   SIGNIN_OTP_REQUESTED_MESSAGE,
+  signinWithPassword,
   verifySigninOtp,
   verifySignupOtp,
 } from "./service.js";
@@ -47,6 +53,30 @@ export async function signinVerify(req: Request, res: Response): Promise<void> {
   const session = await verifySigninOtp(input, buildContext(req));
   setSessionCookies(res, session.accessToken, session.refreshToken);
   res.json({ user: session.user });
+}
+
+export async function signinPassword(req: Request, res: Response): Promise<void> {
+  const input = signinPasswordSchema.parse(req.body);
+  const session = await signinWithPassword(input, buildContext(req));
+  setSessionCookies(res, session.accessToken, session.refreshToken);
+  res.json({ user: session.user });
+}
+
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw new UnauthorizedError();
+  const input = changePasswordSchema.parse(req.body);
+  await changeOwnPassword(req.user.id, input, buildContext(req));
+  res.status(204).send();
+}
+
+/**
+ * "Forgot password?" on the sign-in screen. Unauthenticated but still requires
+ * the current password, so it grants nothing a sign-in wouldn't already.
+ */
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  const input = resetPasswordSchema.parse(req.body);
+  await resetPasswordWithCurrent(input, buildContext(req));
+  res.status(204).send();
 }
 
 /**

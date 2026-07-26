@@ -15,7 +15,7 @@ export function AboutPortalPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-foreground">{about.heading}</h1>
+        <h1 className="text-xl font-semibold text-heading">{about.heading}</h1>
         <p className="text-sm text-muted-foreground">{about.subheading}</p>
       </div>
 

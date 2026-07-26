@@ -76,7 +76,7 @@ export function AdminPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-foreground">{strings.admin.heading}</h1>
+        <h1 className="text-xl font-semibold text-heading">{strings.admin.heading}</h1>
         <p className="text-sm text-muted-foreground">{strings.admin.subheading}</p>
       </div>
 
@@ -460,6 +460,7 @@ function UsersSection() {
   const [state, setState] = useState<UsersFetchState | null>(null);
   const [blockTarget, setBlockTarget] = useState<AdminUser | null>(null);
   const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
+  const [resetTarget, setResetTarget] = useState<AdminUser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -571,6 +572,9 @@ function UsersSection() {
                       {target.role === "ADMIN" ? strings.admin.users.revokeAdmin : strings.admin.users.makeAdmin}
                     </Button>
                   )}
+                  <Button variant="outline" size="sm" disabled={busyId === target.id} onClick={() => setResetTarget(target)}>
+                    {strings.admin.users.resetPassword}
+                  </Button>
                   {target.accountStatus === "ACTIVE" ? (
                     <Button variant="outline" size="sm" disabled={busyId === target.id} onClick={() => setBlockTarget(target)}>
                       {strings.common.block}
@@ -602,6 +606,19 @@ function UsersSection() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={resetTarget !== null} onOpenChange={(open) => { if (!open) setResetTarget(null); }}>
+        <DialogContent>
+          {resetTarget && (
+            <ResetPasswordDialogForm
+              key={resetTarget.id}
+              target={resetTarget}
+              onClose={() => setResetTarget(null)}
+              onReset={() => setResetTarget(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={roleTarget !== null} onOpenChange={(open) => { if (!open) setRoleTarget(null); }}>
         <DialogContent>
           {roleTarget && (
@@ -618,6 +635,55 @@ function UsersSection() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface ResetPasswordDialogFormProps {
+  target: AdminUser;
+  onClose: () => void;
+  onReset: () => void;
+}
+
+/** Confirms resetting an officer's password back to the shared default. */
+function ResetPasswordDialogForm({ target, onClose, onReset }: ResetPasswordDialogFormProps) {
+  const strings = useStrings();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    adminApi
+      .resetUserPassword(target.id)
+      .then(() => {
+        toast.success(strings.admin.users.passwordReset);
+        onReset();
+      })
+      .catch((err: unknown) => setError(err instanceof ApiError ? err.message : strings.common.somethingWentWrong))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>{strings.admin.users.resetPasswordTitle}</DialogTitle>
+        <DialogDescription>
+          {target.name} — {strings.admin.users.resetPasswordDescription}
+        </DialogDescription>
+      </DialogHeader>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          {strings.common.cancel}
+        </Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? strings.common.saving : strings.admin.users.resetPassword}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 

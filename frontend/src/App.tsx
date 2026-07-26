@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AboutPortalPage } from "@/pages/AboutPortalPage";
 import { AdminPage } from "@/pages/AdminPage";
+import { ChangePasswordPage } from "@/pages/ChangePasswordPage";
 import { DiaryEditorPage } from "@/pages/DiaryEditorPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -14,7 +15,7 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { SignInPage } from "@/pages/SignInPage";
 import { SignUpPage } from "@/pages/SignUpPage";
 import { ViewDiariesPage } from "@/pages/ViewDiariesPage";
-import { RequireAuth, RequireGuest, RequireRole } from "@/routes/guards";
+import { RequireAuth, RequireGuest, RequirePasswordChange, RequireRole } from "@/routes/guards";
 
 /** Forces a full remount when navigating between two existing diaries (same matched route, different `:id`) — `DiaryEditorPage` owns per-diary state that must not bleed across ids. */
 function DiaryEditorRoute() {
@@ -33,6 +34,12 @@ export default function App() {
             <Route element={<RequireGuest />}>
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/signup" element={<SignUpPage />} />
+            </Route>
+
+            {/* Forced first-login password change — deliberately outside the
+                dashboard shell so there is no nav to escape through. */}
+            <Route element={<RequirePasswordChange />}>
+              <Route path="/change-password" element={<ChangePasswordPage />} />
             </Route>
 
             <Route element={<RequireAuth />}>

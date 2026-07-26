@@ -7,9 +7,13 @@ import { normalizeIndianMobile } from "../../shared/mobile.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../shared/jwt.js";
 import type { RequestContext } from "../../shared/http.js";
 import { consumeOtpChallenge, issueOtpChallenge } from "../../shared/otpChallenge.js";
+import { DEFAULT_PASSWORD, hashPassword, verifyPassword } from "../../shared/password.js";
 import { recordAuditEntry } from "../audit/service.js";
 import { toPublicUser, type PublicUser } from "../user/service.js";
 import type {
+  ChangePasswordInput,
+  ResetPasswordInput,
+  SigninPasswordInput,
   SigninRequestOtpInput,
   SigninVerifyInput,
   SignupRequestOtpInput,
@@ -226,6 +230,132 @@ export async function verifySigninOtp(
   });
 
   return { user: toPublicUser(user), accessToken, refreshToken };
+}
+
+// ── Password sign-in ───────────────────────────────────────────────────────
+
+/**
+ * Same message for unknown account, blocked account, and wrong password, so the
+ * endpoint can't be used to discover which PNOs/emails exist (mirrors the OTP path).
+ */
+const GENERIC_PASSWORD_FAILURE = "The ID or password is incorrect.";
+
+/**
+ * Officers may identify themselves by either half of what they already know:
+ * their PNO (the user id) or their registered email. Anything containing "@" is
+ * treated as an email; everything else as a PNO.
+ */
+async function findUserByPnoOrEmail(identifier: string) {
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(trimmed.includes("@") ? eq(users.email, trimmed.toLowerCase()) : eq(users.id, trimmed))
+    .limit(1);
+  return user ?? null;
+}
+
+/**
+ * Resolves an identifier + password to an account, or throws the shared generic
+ * failure. Used by both password sign-in and the self-service password reset.
+ */
+async function authenticateWithPassword(identifier: string, password: string) {
+  const user = await findUserByPnoOrEmail(identifier);
+
+  if (!user || user.accountStatus !== "ACTIVE" || !user.passwordHash) {
+    throw new ValidationError(GENERIC_PASSWORD_FAILURE);
+  }
+
+  const ok = await verifyPassword(password, user.passwordHash);
+  if (!ok) throw new ValidationError(GENERIC_PASSWORD_FAILURE);
+
+  return user;
+}
+
+/** Signs in with the officer's PNO or email, plus their password. */
+export async function signinWithPassword(
+  input: SigninPasswordInput,
+  context: RequestContext,
+): Promise<AuthSession> {
+  const user = await authenticateWithPassword(input.identifier, input.password);
+
+  const { accessToken, refreshToken } = issueSession(user);
+
+  await recordAuditEntry({
+    actorId: user.id,
+    action: "auth.signin.password.completed",
+    resourceType: "user",
+    resourceId: user.id,
+    metadata: {},
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+
+  return { user: toPublicUser(user), accessToken, refreshToken };
+}
+
+/**
+ * Writes a new password and clears the forced-change flag. Shared by the
+ * signed-in change and the sign-in-screen reset so both enforce the same rule:
+ * the shared default can never be chosen as the new password.
+ */
+async function applyNewPassword(
+  userId: string,
+  newPassword: string,
+  action: string,
+  context: RequestContext,
+): Promise<void> {
+  if (newPassword === DEFAULT_PASSWORD) {
+    throw new ValidationError("Choose a password other than the default one.");
+  }
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(newPassword), mustChangePassword: false })
+    .where(eq(users.id, userId));
+
+  await recordAuditEntry({
+    actorId: userId,
+    action,
+    resourceType: "user",
+    resourceId: userId,
+    metadata: {},
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+}
+
+/** Changes the signed-in officer's own password (current password required). */
+export async function changeOwnPassword(
+  userId: string,
+  input: ChangePasswordInput,
+  context: RequestContext,
+): Promise<void> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user || user.accountStatus !== "ACTIVE") throw new UnauthorizedError();
+
+  const ok = user.passwordHash ? await verifyPassword(input.currentPassword, user.passwordHash) : false;
+  if (!ok) {
+    throw new ValidationError("Your current password is incorrect.");
+  }
+
+  await applyNewPassword(userId, input.newPassword, "auth.password.changed", context);
+}
+
+/**
+ * Self-service reset from the sign-in screen ("Forgot password?"), for officers
+ * who remember their current password but want a new one without signing in
+ * first. Requires the current password, so it is exactly as strong as a sign-in
+ * — an officer who has genuinely forgotten it must ask an ADMIN to reset.
+ */
+export async function resetPasswordWithCurrent(
+  input: ResetPasswordInput,
+  context: RequestContext,
+): Promise<void> {
+  const user = await authenticateWithPassword(input.identifier, input.currentPassword);
+  await applyNewPassword(user.id, input.newPassword, "auth.password.reset_self", context);
 }
 
 // ── Refresh ────────────────────────────────────────────────────────────────

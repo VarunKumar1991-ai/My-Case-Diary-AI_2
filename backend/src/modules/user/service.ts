@@ -8,9 +8,9 @@ import { recordAuditEntry } from "../audit/service.js";
 import type { UpdateProfileInput } from "./dto.js";
 
 /**
- * The User row's public projection — strips nothing secret today (there are no
- * passwords or token hashes on this entity) but gives every module a single,
- * stable shape to hand back to clients instead of leaking the raw DB row.
+ * The User row's public projection — keeps `passwordHash` out of every response
+ * and gives every module a single, stable shape to hand back to clients instead
+ * of leaking the raw DB row.
  */
 export interface PublicUser {
   id: string;
@@ -20,6 +20,8 @@ export interface PublicUser {
   mobile: string | null;
   role: "OFFICER" | "ADMIN";
   accountStatus: "ACTIVE" | "BLOCKED";
+  /** Account is still on the default password — the UI must force a change. */
+  mustChangePassword: boolean;
 }
 
 export function toPublicUser(user: typeof users.$inferSelect): PublicUser {
@@ -31,6 +33,7 @@ export function toPublicUser(user: typeof users.$inferSelect): PublicUser {
     mobile: user.mobile,
     role: user.role,
     accountStatus: user.accountStatus,
+    mustChangePassword: user.mustChangePassword,
   };
 }
 

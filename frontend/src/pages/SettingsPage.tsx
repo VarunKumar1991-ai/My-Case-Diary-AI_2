@@ -1,3 +1,4 @@
+import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -16,7 +17,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-foreground">{strings.settings.heading}</h1>
+        <h1 className="text-xl font-semibold text-heading">{strings.settings.heading}</h1>
         <p className="text-sm text-muted-foreground">{strings.settings.subheading}</p>
       </div>
 
@@ -47,6 +48,8 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <ChangePasswordCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{strings.settings.sessionHeading}</CardTitle>
@@ -62,5 +65,21 @@ export function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Officers change their own password here (current password required). */
+function ChangePasswordCard() {
+  const strings = useStrings();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{strings.auth.changePassword}</CardTitle>
+      </CardHeader>
+      <CardContent className="sm:max-w-sm">
+        <ChangePasswordForm />
+      </CardContent>
+    </Card>
   );
 }

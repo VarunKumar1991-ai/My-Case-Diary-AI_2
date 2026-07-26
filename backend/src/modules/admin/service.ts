@@ -4,6 +4,7 @@ import { caseDiaries, caseTypes, designations, privateAccessApprovals, users } f
 import type { AuthenticatedUser } from "../../middleware/authGuard.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { generateId } from "../../shared/id.js";
+import { DEFAULT_PASSWORD, hashPassword } from "../../shared/password.js";
 import type { RequestContext } from "../../shared/http.js";
 import { recordAuditEntry } from "../audit/service.js";
 import {
@@ -49,6 +50,45 @@ function requireAdgTechnical(user: AuthenticatedUser): void {
   if (user.role !== "ADMIN" || user.designation !== ADG_TECHNICAL_DESIGNATION) {
     throw new ForbiddenError("Only ADG (Technical) may decide private-access requests");
   }
+}
+
+// ── Password reset (ADMIN-only — officers have no self-service reset) ──────
+
+/**
+ * Resets an officer's password back to the shared default. Officers can't reset
+ * their own password (no OTP-based reset flow by design), so a forgotten
+ * password is recovered by asking an ADMIN to do this; the officer then changes
+ * it from Settings.
+ */
+export async function resetUserPassword(
+  admin: AuthenticatedUser,
+  userId: string,
+  context: RequestContext,
+): Promise<PublicUser> {
+  requireAdmin(admin);
+
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) throw new NotFoundError("User not found");
+
+  // Flagged so the officer is forced to pick their own password on next sign-in.
+  // Returned from the UPDATE so the response reflects what was actually written.
+  const [updated] = await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(DEFAULT_PASSWORD), mustChangePassword: true })
+    .where(eq(users.id, userId))
+    .returning();
+
+  await recordAuditEntry({
+    actorId: admin.id,
+    action: "admin.user.password_reset",
+    resourceType: "user",
+    resourceId: userId,
+    metadata: {},
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+
+  return toPublicUser(updated ?? target);
 }
 
 // ── App settings (admin-tunable knobs) ─────────────────────────────────────

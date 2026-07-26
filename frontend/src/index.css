@@ -19,21 +19,31 @@
 :root,
 .dark {
   --background: #0a0d0b;
-  --foreground: #e4e7e4;
+  /* Light-green is the default text colour across the portal (body text, field
+     labels, general copy). User-entered content uses the deeper green below. */
+  --foreground: #86efac;
 
   --card: #131713;
-  --card-foreground: #e4e7e4;
+  --card-foreground: #86efac;
   --popover: #131713;
-  --popover-foreground: #e4e7e4;
+  --popover-foreground: #86efac;
 
   --primary: #4ade80;
   --primary-foreground: #06210f;
+
+  /* Two-green text scheme (see index.html favicon greens): UI text (headings,
+     labels, helper hints) uses the lighter green; user-typed content and
+     descriptions use the deeper green. */
+  --heading: #86efac;
+  --user-text: #22c55e;
 
   --secondary: #1f2421;
   --secondary-foreground: #c9cfc9;
 
   --muted: #181c19;
-  --muted-foreground: #9aa39a;
+  /* Helper hints / secondary copy — a slightly softer light green so it still
+     reads as secondary next to full-strength headings and labels. */
+  --muted-foreground: #77d69b;
 
   --accent: #1f2e22;
   --accent-foreground: #86efac;
@@ -62,6 +72,8 @@
 
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-heading: var(--heading);
+  --color-user-text: var(--user-text);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
 

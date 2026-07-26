@@ -17,6 +17,7 @@ import {
   postDenyPrivateAccessRequest,
   postDesignation,
   postPrivateAccessRequest,
+  postResetUserPassword,
   postUnblockUser,
   putCaseType,
   putDesignation,
@@ -51,6 +52,7 @@ adminRouter.get("/users", asyncHandler(getUsers));
 adminRouter.post("/users/:id/block", asyncHandler(postBlockUser));
 adminRouter.post("/users/:id/unblock", asyncHandler(postUnblockUser));
 adminRouter.post("/users/:id/role", asyncHandler(postChangeUserRole));
+adminRouter.post("/users/:id/reset-password", asyncHandler(postResetUserPassword));
 
 adminRouter.get("/private-access-requests", asyncHandler(getPrivateAccessRequests));
 adminRouter.post("/private-access-requests", asyncHandler(postPrivateAccessRequest));

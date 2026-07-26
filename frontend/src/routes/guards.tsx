@@ -27,6 +27,12 @@ export function RequireAuth() {
   if (!user || user.accountStatus === "BLOCKED") {
     return <Navigate to="/signin" replace state={{ from: location }} />;
   }
+  // Accounts still on the default password can only reach the change-password
+  // screen. The backend enforces the same rule (`authGuard`), so this is purely
+  // to route the officer somewhere useful rather than into a wall of errors.
+  if (user.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
+  }
   return <Outlet />;
 }
 
@@ -36,8 +42,22 @@ export function RequireGuest() {
 
   if (isLoading) return <FullScreenLoader />;
   if (user && user.accountStatus === "ACTIVE") {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={user.mustChangePassword ? "/change-password" : "/home"} replace />;
   }
+  return <Outlet />;
+}
+
+/**
+ * Gate for the forced change-password screen itself: signed in, but sent back to
+ * the app once the password is no longer the default (so the screen can't be
+ * revisited by URL after the fact).
+ */
+export function RequirePasswordChange() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <FullScreenLoader />;
+  if (!user || user.accountStatus === "BLOCKED") return <Navigate to="/signin" replace />;
+  if (!user.mustChangePassword) return <Navigate to="/home" replace />;
   return <Outlet />;
 }
 

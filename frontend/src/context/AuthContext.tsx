@@ -13,6 +13,8 @@ export interface CurrentUser {
   designation: string | null;
   email: string | null;
   mobile: string | null;
+  /** Still on the default password — the app forces a change before anything else. */
+  mustChangePassword: boolean;
 }
 
 interface AuthContextValue {

@@ -27,6 +27,17 @@ export class ForbiddenError extends AppError {
   }
 }
 
+/**
+ * The account is still on the shared default password. Distinct from a plain
+ * ForbiddenError so the frontend can route the officer straight to the
+ * change-password screen instead of showing a generic "no permission" message.
+ */
+export class PasswordChangeRequiredError extends AppError {
+  constructor(message = "Please set a new password before continuing.") {
+    super(403, message, "PASSWORD_CHANGE_REQUIRED");
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = "Resource not found") {
     super(404, message, "NOT_FOUND");

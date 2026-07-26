@@ -84,6 +84,31 @@ export const en = {
     enterCode: "Enter the 6-digit code sent to your registered contact details.",
     changeDetails: "Use different details",
     resendCode: "Send a new code",
+    signInMethod: "Sign-in method",
+    passwordSignInTagline: "Enter your PNO or registered email, plus your password, to continue.",
+    loginWithPassword: "Login with password",
+    loginWithOtp: "Login with OTP",
+    password: "Password",
+    login: "Login",
+    pnoOrEmail: "PNO or Email",
+    pnoOrEmailPlaceholder: "Your PNO or registered email",
+    forgotPassword: "Forgot password?",
+    forgotPasswordHint:
+      "Don't remember your current password? Ask an admin to reset it for you — then sign in and set your own.",
+    resetPasswordTagline: "Enter your current password to set a new one.",
+    setNewPassword: "Set new password",
+    backToSignIn: "Back to sign in",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    confirmNewPassword: "Confirm new password",
+    changePassword: "Change password",
+    passwordChanged: "Password changed.",
+    passwordsDoNotMatch: "The new passwords do not match.",
+    passwordTooShort: "Password must be at least 8 characters.",
+    passwordRule: "At least 8 characters. It cannot be the default password.",
+    setNewPasswordHeading: "Set your own password",
+    setNewPasswordBody:
+      "Your account is still on the password your admin issued. Choose a private one to continue — everything else stays locked until you do.",
   },
   home: {
     searchPlaceholder: "Search by case diary no., FIR no., section, case type, or keyword…",
@@ -216,7 +241,7 @@ export const en = {
     dataBody:
       "Where this data is stored and how long it is retained is a policy decision for your deploying organisation, not a platform default — confirm specifics with your department's data-governance lead. This platform is a drafting aid, not a system of record or a CCTNS replacement.",
     sessionHeading: "Session",
-    sessionBody: "End your current session on this device. You'll need a fresh OTP to sign back in.",
+    sessionBody: "End your current session on this device. You'll need your password or a fresh OTP to sign back in.",
     signOut: "Sign out",
   },
   about: {
@@ -312,6 +337,11 @@ export const en = {
       confirmDemote: "Revoke admin",
       promoted: "Officer promoted to admin.",
       demoted: "Admin reverted to officer.",
+      resetPassword: "Reset password",
+      resetPasswordTitle: "Reset this officer's password?",
+      resetPasswordDescription:
+        "Their password will be set back to the default. Tell them to sign in with it and change it from Settings straight away.",
+      passwordReset: "Password reset to the default.",
     },
     privateAccess: {
       intro:

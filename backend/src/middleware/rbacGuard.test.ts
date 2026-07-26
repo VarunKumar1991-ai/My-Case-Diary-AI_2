@@ -13,6 +13,7 @@ function makeUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
     designation: "Sub Inspector",
     email: "officer@example.test",
     mobile: "+919876543210",
+    mustChangePassword: false,
     ...overrides,
   };
 }

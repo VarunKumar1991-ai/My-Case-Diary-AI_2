@@ -29,6 +29,7 @@ import {
   listPrivateAccessRequests,
   listUsers,
   requestPrivateAccess,
+  resetUserPassword,
   setQuickSearchSettings,
   unblockUser,
   updateCaseType,
@@ -127,6 +128,12 @@ export async function postBlockUser(req: Request, res: Response): Promise<void> 
   const admin = requireUser(req);
   const input = blockUserSchema.parse(req.body);
   const user = await blockUser(admin, requireParam(req, "id"), input, buildContext(req));
+  res.json({ user });
+}
+
+export async function postResetUserPassword(req: Request, res: Response): Promise<void> {
+  const admin = requireUser(req);
+  const user = await resetUserPassword(admin, requireParam(req, "id"), buildContext(req));
   res.json({ user });
 }
 

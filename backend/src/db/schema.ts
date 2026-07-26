@@ -39,6 +39,14 @@ export const users = pgTable(
     mobile: varchar("mobile", { length: 16 }), // E.164, e.g. +91XXXXXXXXXX
     role: roleEnum("role").notNull().default("OFFICER"),
     accountStatus: accountStatusEnum("account_status").notNull().default("ACTIVE"),
+    // bcrypt hash for ID/password sign-in. Nullable: OTP sign-in still works on
+    // its own, and accounts created before passwords existed are backfilled with
+    // the default password rather than being locked out.
+    passwordHash: text("password_hash"),
+    // True while the account still sits on the shared default password (after the
+    // initial backfill or an admin reset). Every authenticated route is blocked
+    // until the officer picks their own — see `authGuard`.
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

@@ -35,6 +35,48 @@ export const signinVerifySchema = z.object({
   code: z.string().regex(/^\d{6}$/, "OTP must be a 6-digit code"),
 });
 
+// ── Password auth ──────────────────────────────────────────────────────────
+
+/** Either half of what an officer already knows: their PNO or registered email. */
+const passwordIdentifier = z.string().trim().min(3, "Enter your PNO or email").max(254);
+
+/** Officers sign in with their PNO or email, plus their password. */
+export const signinPasswordSchema = z.object({
+  identifier: passwordIdentifier,
+  password: z.string().min(1, "Enter your password").max(128),
+});
+
+const newPassword = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters");
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password").max(128),
+    newPassword,
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "The new password must be different from the current one",
+    path: ["newPassword"],
+  });
+
+/** "Forgot password?" from the sign-in screen — same shape plus the identifier. */
+export const resetPasswordSchema = z
+  .object({
+    identifier: passwordIdentifier,
+    currentPassword: z.string().min(1, "Enter your current password").max(128),
+    newPassword,
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "The new password must be different from the current one",
+    path: ["newPassword"],
+  });
+
+export type SigninPasswordInput = z.infer<typeof signinPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
 export type SignupRequestOtpInput = z.infer<typeof signupRequestOtpSchema>;
 export type SignupVerifyInput = z.infer<typeof signupVerifySchema>;
 export type SigninRequestOtpInput = z.infer<typeof signinRequestOtpSchema>;

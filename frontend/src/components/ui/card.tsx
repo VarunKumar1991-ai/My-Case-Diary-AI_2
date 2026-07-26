@@ -19,11 +19,11 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-base leading-none font-semibold", className)} {...props} />;
+  return <div className={cn("text-base leading-none font-semibold text-heading", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-sm text-muted-foreground", className)} {...props} />;
+  return <div className={cn("text-sm text-user-text", className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {

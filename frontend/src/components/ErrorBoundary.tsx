@@ -41,7 +41,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <p className="font-mono text-sm text-destructive" aria-hidden="true">
           ⚠
         </p>
-        <h1 className="text-2xl font-semibold text-foreground">{strings.heading}</h1>
+        <h1 className="text-2xl font-semibold text-heading">{strings.heading}</h1>
         <p className="max-w-md text-sm text-muted-foreground">{strings.body}</p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => window.location.assign("/home")}>

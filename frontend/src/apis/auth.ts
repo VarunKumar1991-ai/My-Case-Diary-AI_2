@@ -39,4 +39,15 @@ export const authApi = {
 
   signinVerify: (input: SigninIdentifier & { code: string }) =>
     api.post<SessionResponse>("/auth/signin/verify", input),
+
+  /** PNO-or-email + password sign-in — the alternative to the OTP flow above. */
+  signinPassword: (input: { identifier: string; password: string }) =>
+    api.post<SessionResponse>("/auth/signin/password", input),
+
+  changePassword: (input: { currentPassword: string; newPassword: string }) =>
+    api.post<void>("/auth/password/change", input),
+
+  /** "Forgot password?" from the sign-in screen — current password still required. */
+  resetPassword: (input: { identifier: string; currentPassword: string; newPassword: string }) =>
+    api.post<void>("/auth/password/reset", input),
 };

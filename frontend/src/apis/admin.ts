@@ -93,6 +93,8 @@ export const adminApi = {
   blockUser: (id: string, reason: string) => api.post<{ user: AdminUser }>(`/admin/users/${id}/block`, { reason }),
   unblockUser: (id: string) => api.post<{ user: AdminUser }>(`/admin/users/${id}/unblock`),
   changeUserRole: (id: string, role: Role) => api.post<{ user: AdminUser }>(`/admin/users/${id}/role`, { role }),
+  /** Resets the officer's password back to the shared default. */
+  resetUserPassword: (id: string) => api.post<{ user: AdminUser }>(`/admin/users/${id}/reset-password`),
 
   listPrivateAccessRequests: (status?: ApprovalStatus) =>
     api.get<{ requests: PrivateAccessRequest[] }>("/admin/private-access-requests", { status }),

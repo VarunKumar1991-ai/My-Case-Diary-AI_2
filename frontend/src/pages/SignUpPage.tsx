@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { authApi, type SignupDetails } from "@/apis/auth";
 import { ApiError } from "@/apis/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -86,10 +86,11 @@ export function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
+      {/* Brand sits above the card, on the page itself — the card's border stays unbroken. */}
+      <h1 className="text-center font-mono text-2xl leading-tight font-semibold text-primary">{strings.app.name}</h1>
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="font-mono text-primary">{strings.app.name}</CardTitle>
+        <CardHeader className="text-center">
           <CardDescription>
             {step === "details" ? strings.auth.signUpTagline : strings.auth.enterCode}
           </CardDescription>

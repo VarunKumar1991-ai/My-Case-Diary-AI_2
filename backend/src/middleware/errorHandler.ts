@@ -9,10 +9,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   if (err instanceof ZodError) {
+    // Surface the first concrete issue as the message — clients show `message`
+    // directly, and "Password must be at least 8 characters" is far more use to
+    // an officer than a generic "Request validation failed". `details` still
+    // carries the full per-field breakdown.
+    const firstIssue = err.issues[0]?.message;
     res.status(400).json({
       error: {
         code: "VALIDATION_ERROR",
-        message: "Request validation failed",
+        message: firstIssue ?? "Request validation failed",
         details: err.flatten(),
       },
     });
