@@ -133,9 +133,8 @@ export function ViewDiariesPage() {
   // Collapse every group whenever the view changes (tab or FIR filter).
   useEffect(() => { setExpandedFirs(new Set()); }, [scope, debouncedFirFilter]);
 
-  const diaries = state?.status === "ok" ? state.diaries : [];
-
   const firGroups = useMemo((): FirGroup[] => {
+    const diaries = state?.status === "ok" ? state.diaries : [];
     const map = new Map<string, CaseDiary[]>();
     for (const diary of diaries) {
       const group = map.get(diary.firNo) ?? [];
@@ -159,7 +158,7 @@ export function ViewDiariesPage() {
         };
       })
       .sort((a, b) => b.latestUpdatedAt - a.latestUpdatedAt);
-  }, [diaries]);
+  }, [state]);
 
   function openVisibilityDialog(group: FirGroup) {
     // FIR-scoped toggle: if every diary is public, the next step makes it private, and vice-versa.

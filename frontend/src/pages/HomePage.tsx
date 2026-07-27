@@ -50,6 +50,9 @@ export function HomePage() {
   // Navigating Home (even re-clicking it while already here — each navigation is
   // a new `location.key`) returns the page to its clean state: the Quick-searches
   // trigger falls back to its placeholder and any prior results are cleared.
+  // Synchronizing local state with the router's navigation, not a render-time
+  // derivation, so resetting here (rather than during render) is intentional.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setQuery("");
     setSubmittedQuery(null);
@@ -57,6 +60,7 @@ export function HomePage() {
     setError(null);
     setExpandedFirs(new Set());
   }, [location.key]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     let cancelled = false;

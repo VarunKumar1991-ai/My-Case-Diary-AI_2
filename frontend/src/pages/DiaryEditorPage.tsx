@@ -149,7 +149,8 @@ function buildHeaderPayload(header: HeaderFormState): CaseDiaryHeaderInput & { c
 
 function isHeaderComplete(header: HeaderFormState): boolean {
   // cdDate is optional; cdNo is auto-filled so we exclude them from the "complete" check
-  const { cdDate: _cdDate, cdNo: _cdNo, ...required } = header;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { cdDate, cdNo, ...required } = header;
   return Object.values(required).every((value) => value.trim().length > 0);
 }
 
@@ -376,6 +377,10 @@ export function DiaryEditorPage() {
   // and trips the app-wide ErrorBoundary. Guard on `editor.isInitialized` and,
   // when the view isn't mounted yet, defer to the `create` event — at which point
   // `editor.view` exists — instead of reaching for `.view.dom` unconditionally.
+  // Tiptap's `editor` is an imperative third-party handle, not React state;
+  // writing to its DOM node is the API's intended use (mirrors the pattern
+  // above for content updates), not a mutation the rule needs to guard against.
+  // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
     if (!editor) return;
 
@@ -421,7 +426,6 @@ export function DiaryEditorPage() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, prefillFromLatest]);
 
   // ── Auto-fill next CD No for new diaries ─────────────────────────────────
@@ -436,7 +440,6 @@ export function DiaryEditorPage() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, header.firNo]);
 
   // ── Case-type taxonomy: Select options + id→name resolution everywhere else ──
@@ -492,6 +495,10 @@ export function DiaryEditorPage() {
   }, [id, isNew, reloadToken]);
 
   // ── Push the loaded diary's body into the editor (suppressing `onUpdate`) ──
+  // `editorEmpty` is set here, not in `onUpdate`, because this effect's whole
+  // job is syncing Tiptap (an imperative editor) with newly-loaded data —
+  // exactly the "synchronize with an external system" case effects are for.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!diary || !editor) return;
     const content = isProseMirrorDoc(diary.body) ? diary.body : "";
@@ -501,6 +508,7 @@ export function DiaryEditorPage() {
     // diary, so opening an older entry must not change their chosen size.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diary?.id, editor]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Adopt the saved preference once `GET /me` resolves (or when it changes in
   // another tab), unless the officer is mid-adjustment in this one.
@@ -508,7 +516,6 @@ export function DiaryEditorPage() {
     if (user?.editorFontSize && !fontSizeSaveTimer.current) {
       setFontSize(user.editorFontSize);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.editorFontSize]);
 
   const diaryId = diary?.id;
