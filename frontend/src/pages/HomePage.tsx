@@ -150,7 +150,7 @@ export function HomePage() {
   const hasSearched = submittedQuery !== null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 px-4 py-16">
+    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 px-4 py-8 sm:py-12 lg:py-16">
       <div className="flex flex-col items-center gap-2 text-center">
         <span className="font-mono text-3xl font-semibold tracking-tight text-primary">
           {"> "}

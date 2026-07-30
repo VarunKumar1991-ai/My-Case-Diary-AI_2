@@ -27,6 +27,11 @@ export const en = {
     logout: "Logout",
     hideSidebar: "Hide sidebar",
     showSidebar: "Show sidebar",
+    more: "More",
+    newFir: "New FIR",
+    // Short forms for the mobile bottom-nav tabs, where space is tight.
+    addEditDiaryShort: "Diary",
+    viewDiariesShort: "Browse",
   },
   roles: {
     OFFICER: "Officer",

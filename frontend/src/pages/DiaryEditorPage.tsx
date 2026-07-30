@@ -695,8 +695,11 @@ export function DiaryEditorPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+        {/* flex-wrap here too: without it, this row refused to wrap as a whole
+            and instead squeezed the FIR-number heading down until the browser
+            started breaking it mid-word at its hyphens. */}
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-lg font-semibold text-heading">
             {diary ? `${strings.diary.fields.firNo} - ${diary.firNo}` : strings.editor.newHeading}
           </h1>
@@ -746,9 +749,16 @@ export function DiaryEditorPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      {/*
+        Below `lg` this stacks into one scrolling column, centre section first
+        (the officer's actual task — writing the body) so it's not buried below
+        the FIR-diaries list. At `lg` and up every class below reduces to
+        exactly what this row used before: order 1/2/3 matches the original
+        left/centre/right DOM order, so desktop is pixel-for-pixel unchanged.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Left: diaries sharing this FIR */}
-        <aside className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border p-4">
+        <aside className="order-2 flex w-full flex-col gap-3 border-b border-border p-4 lg:order-1 lg:w-64 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <Button variant="outline" size="sm" className="w-full gap-2" disabled={!diary} onClick={handleNewDiaryForFir}>
             <PlusIcon className="size-4" />
             {strings.editor.newDiaryForFir}
@@ -784,7 +794,7 @@ export function DiaryEditorPage() {
         </aside>
 
         {/* Centre: header form + Tiptap body */}
-        <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <section className="order-1 flex min-w-0 flex-1 flex-col lg:order-2 lg:overflow-y-auto">
           <form
             className={cn("grid grid-cols-1 border-b border-border p-6 sm:grid-cols-2", COMPACT_FIELD_GRID)}
             onSubmit={isNew ? (event) => void handleCreate(event) : (event) => event.preventDefault()}
@@ -981,7 +991,7 @@ export function DiaryEditorPage() {
         </section>
 
         {/* Right: similar past cases (real) + AI suggestions (Phase-1 placeholder) */}
-        <aside className="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto border-l border-border p-4">
+        <aside className="order-3 flex w-full flex-col gap-6 border-t border-border p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
           <div className="flex flex-col gap-2">
             <p className="text-xs tracking-wide text-muted-foreground uppercase">{strings.editor.similarCasesHeading}</p>
             <p className="text-xs text-muted-foreground">{strings.editor.similarCasesHint}</p>

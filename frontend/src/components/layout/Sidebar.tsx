@@ -45,7 +45,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col border-r border-border bg-card transition-[width] duration-150",
+        // Desktop-only rail (§ mobile nav below lg is MobileBottomNav instead) —
+        // this component's own layout is otherwise completely untouched.
+        "hidden h-full shrink-0 flex-col border-r border-border bg-card transition-[width] duration-150 lg:flex",
         collapsed ? "w-16" : "w-64",
       )}
     >

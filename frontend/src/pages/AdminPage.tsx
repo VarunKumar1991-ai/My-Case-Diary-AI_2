@@ -74,20 +74,24 @@ export function AdminPage() {
   const isAdgTechnical = user.designation === ADG_TECHNICAL_DESIGNATION;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold text-heading">{strings.admin.heading}</h1>
         <p className="text-sm text-muted-foreground">{strings.admin.subheading}</p>
       </div>
 
       <Tabs value={section} onValueChange={(value) => setSection(value as AdminSection)}>
-        <TabsList>
-          {SECTIONS.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {sectionLabel(value, strings)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {/* Six tabs don't fit a phone width — scroll horizontally within the bar
+            itself rather than letting the whole page scroll sideways. */}
+        <div className="overflow-x-auto">
+          <TabsList>
+            {SECTIONS.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {sectionLabel(value, strings)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
 
       {section === "caseTypes" && (

@@ -64,7 +64,16 @@ const EMPTY_INV: InvForm = {
  * (CD-001). Lives in the sidebar so it's reachable from anywhere; on success it
  * navigates to the new diary's editor.
  */
-export function NewInvestigationDialog({ className, collapsed }: { className?: string; collapsed?: boolean }) {
+export function NewInvestigationDialog({
+  className,
+  collapsed,
+  label,
+}: {
+  className?: string;
+  collapsed?: boolean;
+  /** Overrides the visible label (e.g. a short "New FIR" for the mobile bottom-nav tab). */
+  label?: string;
+}) {
   const strings = useStrings();
   const navigate = useNavigate();
 
@@ -159,7 +168,7 @@ export function NewInvestigationDialog({ className, collapsed }: { className?: s
         onClick={openDialog}
       >
         <PlusIcon className="size-4 shrink-0" />
-        {!collapsed && strings.home.startNewInvestigation}
+        {!collapsed && (label ?? strings.home.startNewInvestigation)}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

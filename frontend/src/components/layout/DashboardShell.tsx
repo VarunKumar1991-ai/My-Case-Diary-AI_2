@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 
+import { MobileBottomNav } from "./MobileBottomNav";
 import { Sidebar } from "./Sidebar";
 
 const SIDEBAR_KEY = "cd_sidebar_open";
@@ -21,9 +22,11 @@ export function DashboardShell() {
   return (
     <div className="flex h-svh bg-background">
       <Sidebar collapsed={!open} onToggle={() => setOpen((v) => !v)} />
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      {/* pb-16 clears MobileBottomNav (only rendered/visible below `lg`, see there) */}
+      <main className="min-h-0 flex-1 overflow-y-auto pb-16 lg:pb-0">
         <Outlet />
       </main>
+      <MobileBottomNav />
     </div>
   );
 }
