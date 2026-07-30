@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { caseDiariesApi, type DiaryVisibility } from "@/apis/caseDiaries";
 import { ApiError } from "@/apis/client";
 import { lookupsApi, type LookupOption } from "@/apis/lookups";
+import { VisibilityBadge } from "@/components/VisibilityBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,7 +56,9 @@ const EMPTY_INV: InvForm = {
   placeOfIncidence: "",
   plaintiffName: "",
   accusedName: "",
-  visibility: "PUBLIC",
+  // Private by default — an officer opting into a public investigation should
+  // be a deliberate choice, not something they have to remember to switch.
+  visibility: "PRIVATE",
 };
 
 /**
@@ -334,8 +337,14 @@ export function NewInvestigationDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PUBLIC">{strings.diary.public}</SelectItem>
-                  <SelectItem value="PRIVATE">{strings.diary.private}</SelectItem>
+                  {/* Same red/green pills as the portal-wide Public/Private badge
+                      (VisibilityBadge) — one color source, no drift between them. */}
+                  <SelectItem value="PUBLIC">
+                    <VisibilityBadge visibility="PUBLIC" />
+                  </SelectItem>
+                  <SelectItem value="PRIVATE">
+                    <VisibilityBadge visibility="PRIVATE" />
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
