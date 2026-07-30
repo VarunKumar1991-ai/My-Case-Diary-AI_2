@@ -103,7 +103,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
   if (token) {
     try {
       const payload = verifyAccessToken(token);
-      await recordLogout(payload.sub, buildContext(req));
+      await recordLogout(payload.sub, payload.sessionId, buildContext(req));
     } catch {
       // Expired or malformed token — nothing to attribute, just clear cookies below.
     }

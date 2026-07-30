@@ -57,6 +57,13 @@
       "when": 1785096353645,
       "tag": "0007_editor_font_size",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785436972490,
+      "tag": "0008_single_session",
+      "breakpoints": true
     }
   ]
 }

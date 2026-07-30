@@ -4,11 +4,14 @@ import { config } from "../config/index.js";
 export interface AccessTokenPayload {
   sub: string; // user id (pno)
   role: "OFFICER" | "ADMIN";
+  // Single-session enforcement: must match `users.currentSessionId` at request
+  // time — see `authGuard`. Absent on tokens issued before this existed.
+  sessionId: string;
 }
 
 export interface RefreshTokenPayload {
   sub: string;
-  tokenId: string;
+  sessionId: string;
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {

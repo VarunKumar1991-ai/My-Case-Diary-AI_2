@@ -10,18 +10,19 @@ import {
 
 describe("access tokens", () => {
   it("round-trips the signed payload", () => {
-    const token = signAccessToken({ sub: "UP12345", role: "OFFICER" });
+    const token = signAccessToken({ sub: "UP12345", role: "OFFICER", sessionId: "sess_abc123" });
     const payload = verifyAccessToken(token);
 
     expect(payload.sub).toBe("UP12345");
     expect(payload.role).toBe("OFFICER");
+    expect(payload.sessionId).toBe("sess_abc123");
   });
 
   it("rejects a token signed with a different secret", () => {
     // jsonwebtoken signs with config.jwt.accessSecret; tampering with the
     // signature (or using the refresh verifier, which uses a different
     // secret) must be rejected, never silently accepted.
-    const token = signAccessToken({ sub: "UP12345", role: "ADMIN" });
+    const token = signAccessToken({ sub: "UP12345", role: "ADMIN", sessionId: "sess_abc123" });
     const tampered = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
 
     expect(() => verifyAccessToken(tampered)).toThrow();
@@ -34,16 +35,16 @@ describe("access tokens", () => {
 
 describe("refresh tokens", () => {
   it("round-trips the signed payload", () => {
-    const token = signRefreshToken({ sub: "UP12345", tokenId: "rt_abc123" });
+    const token = signRefreshToken({ sub: "UP12345", sessionId: "rt_abc123" });
     const payload = verifyRefreshToken(token);
 
     expect(payload.sub).toBe("UP12345");
-    expect(payload.tokenId).toBe("rt_abc123");
+    expect(payload.sessionId).toBe("rt_abc123");
   });
 
   it("uses a different signing key than access tokens (cross-verification fails)", () => {
-    const accessToken = signAccessToken({ sub: "UP12345", role: "OFFICER" });
-    const refreshToken = signRefreshToken({ sub: "UP12345", tokenId: "rt_abc123" });
+    const accessToken = signAccessToken({ sub: "UP12345", role: "OFFICER", sessionId: "sess_abc123" });
+    const refreshToken = signRefreshToken({ sub: "UP12345", sessionId: "rt_abc123" });
 
     expect(() => verifyRefreshToken(accessToken)).toThrow();
     expect(() => verifyAccessToken(refreshToken)).toThrow();

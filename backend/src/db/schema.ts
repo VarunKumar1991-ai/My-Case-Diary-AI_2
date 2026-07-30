@@ -51,6 +51,13 @@ export const users = pgTable(
     // (not per-diary), so it follows them across diaries, sessions and devices.
     // Null means "never set" — the editor falls back to its default.
     editorFontSize: integer("editor_font_size"),
+    // The one session currently allowed to use this account (single-session
+    // login, D-mobile-nav era decision): every sign-in overwrites this with a
+    // fresh id, which silently invalidates whatever device was signed in
+    // before — `authGuard` and `refreshSession` both reject a token whose
+    // embedded session id no longer matches. Null means "no active session"
+    // (never signed in, or explicitly logged out).
+    currentSessionId: text("current_session_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

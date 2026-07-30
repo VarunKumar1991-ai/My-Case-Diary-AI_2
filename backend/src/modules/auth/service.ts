@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { users } from "../../db/schema.js";
 import { ConflictError, UnauthorizedError, ValidationError } from "../../shared/errors.js";
@@ -95,10 +95,18 @@ async function assertIdentifierAvailable(pno: string, email: string | null, mobi
   }
 }
 
-function issueSession(user: typeof users.$inferSelect): { accessToken: string; refreshToken: string } {
+/**
+ * Issues a fresh session and records it as *the* session for this account —
+ * one device signed in at a time. Persisting the id here (rather than only
+ * embedding it in the tokens) is what lets `authGuard` silently invalidate
+ * whatever was previously signed in, on that device's very next request.
+ */
+async function issueSession(user: typeof users.$inferSelect): Promise<{ accessToken: string; refreshToken: string }> {
+  const sessionId = randomUUID();
+  await db.update(users).set({ currentSessionId: sessionId }).where(eq(users.id, user.id));
   return {
-    accessToken: signAccessToken({ sub: user.id, role: user.role }),
-    refreshToken: signRefreshToken({ sub: user.id, tokenId: randomUUID() }),
+    accessToken: signAccessToken({ sub: user.id, role: user.role, sessionId }),
+    refreshToken: signRefreshToken({ sub: user.id, sessionId }),
   };
 }
 
@@ -151,7 +159,7 @@ export async function verifySignupOtp(
 
   if (!user) throw new ValidationError("Could not create the account. Please try again.");
 
-  const { accessToken, refreshToken } = issueSession(user);
+  const { accessToken, refreshToken } = await issueSession(user);
 
   await recordAuditEntry({
     actorId: user.id,
@@ -217,7 +225,7 @@ export async function verifySigninOtp(
 
   await consumeOtpChallenge(identifier, "signin", input.code, GENERIC_OTP_FAILURE);
 
-  const { accessToken, refreshToken } = issueSession(user);
+  const { accessToken, refreshToken } = await issueSession(user);
 
   await recordAuditEntry({
     actorId: user.id,
@@ -281,7 +289,7 @@ export async function signinWithPassword(
 ): Promise<AuthSession> {
   const user = await authenticateWithPassword(input.identifier, input.password);
 
-  const { accessToken, refreshToken } = issueSession(user);
+  const { accessToken, refreshToken } = await issueSession(user);
 
   await recordAuditEntry({
     actorId: user.id,
@@ -376,13 +384,29 @@ export async function refreshSession(refreshToken: string): Promise<AuthSession>
   const [user] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1);
   if (!user || user.accountStatus !== "ACTIVE") throw new UnauthorizedError();
 
-  const { accessToken, refreshToken: nextRefreshToken } = issueSession(user);
+  // Single-session enforcement: a refresh token from a device that has since
+  // been superseded by a sign-in elsewhere must not be able to mint a new one.
+  if (user.currentSessionId !== payload.sessionId) throw new UnauthorizedError();
+
+  const { accessToken, refreshToken: nextRefreshToken } = await issueSession(user);
   return { user: toPublicUser(user), accessToken, refreshToken: nextRefreshToken };
 }
 
 // ── Logout ─────────────────────────────────────────────────────────────────
 
-export async function recordLogout(userId: string, context: RequestContext): Promise<void> {
+/**
+ * Clears `currentSessionId` only if it still matches the token being logged
+ * out — a stale/already-superseded device logging out must not clear the
+ * *new* session that replaced it elsewhere.
+ */
+export async function recordLogout(userId: string, sessionId: string | undefined, context: RequestContext): Promise<void> {
+  if (sessionId) {
+    await db
+      .update(users)
+      .set({ currentSessionId: null })
+      .where(and(eq(users.id, userId), eq(users.currentSessionId, sessionId)));
+  }
+
   await recordAuditEntry({
     actorId: userId,
     action: "auth.logout",

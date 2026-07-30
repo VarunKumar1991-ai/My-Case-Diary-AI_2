@@ -53,6 +53,10 @@ export async function authGuard(req: Request, _res: Response, next: NextFunction
 
     if (!user) throw new UnauthorizedError();
     if (user.accountStatus === "BLOCKED") throw new UnauthorizedError("Account is blocked");
+    // Single-session enforcement: signing in elsewhere overwrites currentSessionId
+    // (see `issueSession`), so this device's next request lands here and is cut
+    // off immediately — no waiting for the access token to expire.
+    if (user.currentSessionId !== payload.sessionId) throw new UnauthorizedError();
 
     authenticated = {
       id: user.id,

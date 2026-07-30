@@ -4,6 +4,7 @@ import { ConflictError, ValidationError } from "../../shared/errors.js";
 const {
   selectMock,
   insertMock,
+  updateMock,
   issueOtpChallengeMock,
   consumeOtpChallengeMock,
   recordAuditEntryMock,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   selectMock: vi.fn(),
   insertMock: vi.fn(),
+  updateMock: vi.fn(),
   issueOtpChallengeMock: vi.fn(),
   consumeOtpChallengeMock: vi.fn(),
   recordAuditEntryMock: vi.fn(),
@@ -20,7 +22,7 @@ const {
 }));
 
 vi.mock("../../db/client.js", () => ({
-  db: { select: selectMock, insert: insertMock },
+  db: { select: selectMock, insert: insertMock, update: updateMock },
 }));
 
 vi.mock("../../shared/otpChallenge.js", () => ({
@@ -91,12 +93,15 @@ function mockInsertReturning(row: UserRow | null) {
 beforeEach(() => {
   selectMock.mockReset();
   insertMock.mockReset();
+  updateMock.mockReset();
   issueOtpChallengeMock.mockReset();
   consumeOtpChallengeMock.mockReset();
   recordAuditEntryMock.mockReset();
   signAccessTokenMock.mockReset();
   signRefreshTokenMock.mockReset();
 
+  // `issueSession`/`recordLogout` write `currentSessionId` via db.update(...).set(...).where(...).
+  updateMock.mockReturnValue({ set: () => ({ where: () => Promise.resolve(undefined) }) });
   issueOtpChallengeMock.mockResolvedValue(undefined);
   consumeOtpChallengeMock.mockResolvedValue({ id: "otp_x" });
   recordAuditEntryMock.mockResolvedValue(undefined);
@@ -258,10 +263,17 @@ describe("verifySigninOtp", () => {
 
 describe("recordLogout", () => {
   it("records an audit entry for the logout", async () => {
-    await recordLogout("UP00001", CONTEXT);
+    await recordLogout("UP00001", "sess_abc123", CONTEXT);
 
     expect(recordAuditEntryMock).toHaveBeenCalledWith(
       expect.objectContaining({ actorId: "UP00001", action: "auth.logout", resourceId: "UP00001" }),
     );
+  });
+
+  it("skips the session-clearing update when no sessionId is known (already-expired token)", async () => {
+    await recordLogout("UP00001", undefined, CONTEXT);
+
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(recordAuditEntryMock).toHaveBeenCalled();
   });
 });
