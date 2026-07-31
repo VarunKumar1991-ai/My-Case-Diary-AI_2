@@ -31,7 +31,7 @@ export const en = {
     newFir: "New FIR",
     // Short forms for the mobile bottom-nav tabs, where space is tight.
     addEditDiaryShort: "Diary",
-    viewDiariesShort: "Browse",
+    viewDiariesShort: "View",
   },
   roles: {
     OFFICER: "Officer",
