@@ -179,6 +179,7 @@ export const en = {
     loadFailed: "We couldn't load this case diary.",
     notFound: "This case diary doesn't exist or you don't have access to it.",
     createFailed: "Fill in all required fields, then try creating the case diary again.",
+    dateNotUnderstood: "Couldn't understand this date/time — try dd/mm/yyyy HH:mm.",
     makePublic: "Make public",
     makePrivate: "Make private",
     makePublicConfirmTitle: "Make this case diary public?",

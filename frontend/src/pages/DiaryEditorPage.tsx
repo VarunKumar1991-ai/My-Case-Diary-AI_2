@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ClipboardListIcon, MinusIcon, PlusIcon, Share2Icon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { ClipboardListIcon, CopyIcon, MinusIcon, PlusIcon, Share2Icon, SparklesIcon, Trash2Icon } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { type JSONContent, useEditor, EditorContent } from "@tiptap/react";
@@ -42,7 +42,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { type Strings } from "@/i18n/en";
 import { useStrings } from "@/i18n";
-import { COMPACT_FIELD, COMPACT_FIELD_GRID } from "@/lib/formStyles";
+import { COMPACT_FIELD_GRID } from "@/lib/formStyles";
 import { cn, formatDateTime, toDateDisplay } from "@/lib/utils";
 
 const SAVE_DEBOUNCE_MS = 1000;
@@ -107,9 +107,10 @@ function toDateValue(iso: string | null): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+/** Accepts d/m/yyyy, d-m-yyyy, or d.m.yyyy — one exact separator isn't required. */
 function fromDateValue(value: string): string {
   if (!value) return "";
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+  const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/.exec(value.trim());
   if (!m) return "";
   const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();
@@ -162,12 +163,24 @@ function toDatetimeLocalValue(iso: string): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function fromDatetimeLocalValue(value: string): string {
-  if (!value) return "";
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/.exec(value.trim());
-  if (!m) return "";
-  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]));
-  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+/** The two date+time header fields — kept as a type so the flexible-typing state below can be keyed by it. */
+type DateTimeField = "incidentDateTime" | "firRegistrationDateTime";
+
+/**
+ * Accepts d/m/yyyy, d-m-yyyy, or d.m.yyyy for the date, and either 24h (H:mm)
+ * or 12h with am/pm for the time. Returns `null` — not `""` — when the text
+ * doesn't parse yet, so a caller can tell "cleared" apart from "still typing"
+ * and never silently blank out what the officer has typed so far.
+ */
+function parseFlexibleDateTime(value: string): Date | null {
+  const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)?$/i.exec(value.trim());
+  if (!m) return null;
+  let hours = Number(m[4]);
+  const meridiem = m[6]?.toLowerCase();
+  if (meridiem === "pm" && hours < 12) hours += 12;
+  if (meridiem === "am" && hours === 12) hours = 0;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), hours, Number(m[5]));
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function isProseMirrorDoc(value: unknown): value is JSONContent {
@@ -204,6 +217,13 @@ function saveStatusLabel(status: SaveStatus, strings: Strings): string | null {
   }
 }
 
+/**
+ * Strips the shared Input/Textarea's boxed look (border, fill, radius, shadow)
+ * for the ruled-notebook style — applied per-instance via `cn`/`twMerge` so the
+ * primitives themselves (used across sign-in, admin, profile, …) stay untouched.
+ */
+const RULED_INPUT_CLASS = "rounded-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0";
+
 function HeaderField({
   label,
   htmlFor,
@@ -216,9 +236,17 @@ function HeaderField({
   className?: string;
 }) {
   return (
-    <div className={cn(COMPACT_FIELD, className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
+    // Ruled-notebook (कापी) row: label inline, child fills the rest of the same
+    // line, one horizontal rule per field — not the stacked label-above-box look.
+    <div className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-border py-1.5", className)}>
+      <Label htmlFor={htmlFor} className="shrink-0 whitespace-nowrap">
+        {label}
+      </Label>
+      {/* min-w-36 (not min-w-0): when a long label leaves too little room, the
+          value wraps down onto its own line instead of the input silently
+          clipping/scrolling its text — narrow 2-column cells (e.g. this centre
+          panel squeezed between the two side panels) hit this often. */}
+      <div className="min-w-36 flex-1">{children}</div>
     </div>
   );
 }
@@ -267,6 +295,16 @@ export function DiaryEditorPage() {
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimerRef = useRef<number | null>(null);
+
+  // Flexible date/time typing (incidentDateTime / firRegistrationDateTime): the
+  // input's displayed text normally falls through to `toDatetimeLocalValue`
+  // formatting `header.<field>` (the saved ISO value). While the officer is
+  // mid-typing something that doesn't parse yet, `rawDateInput[field]` holds
+  // exactly what's on screen instead — so it's never blanked mid-keystroke —
+  // and `header.<field>` (what actually gets persisted) is left untouched until
+  // the text resolves to a real date. See `handleDateFieldChange`.
+  const [rawDateInput, setRawDateInput] = useState<Partial<Record<DateTimeField, string>>>({});
+  const [dateFieldError, setDateFieldError] = useState<Partial<Record<DateTimeField, string>>>({});
 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -324,6 +362,38 @@ export function DiaryEditorPage() {
   function updateHeader<K extends keyof HeaderFormState>(key: K, value: HeaderFormState[K]) {
     setHeader((prev) => ({ ...prev, [key]: value }));
     scheduleAutosave();
+  }
+
+  /**
+   * onChange for Incident date & time / FIR registration date & time. Always
+   * shows exactly what was typed (`rawDateInput`); only writes to `header`
+   * (and therefore only ever autosaves) once the text resolves to a real date,
+   * so an in-progress or unparseable draft can never reach the database —
+   * the last saved value simply stands until the officer fixes their typing.
+   */
+  function handleDateFieldChange(field: DateTimeField, text: string) {
+    setRawDateInput((prev) => ({ ...prev, [field]: text }));
+
+    if (!text.trim()) {
+      setDateFieldError((prev) => ({ ...prev, [field]: undefined }));
+      updateHeader(field, "");
+      return;
+    }
+
+    const parsed = parseFlexibleDateTime(text);
+    if (parsed) {
+      setDateFieldError((prev) => ({ ...prev, [field]: undefined }));
+      updateHeader(field, parsed.toISOString());
+      // Resolved — drop the raw override so the display falls back to the
+      // canonical dd/mm/yyyy HH:mm formatting on the next render.
+      setRawDateInput((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    } else {
+      setDateFieldError((prev) => ({ ...prev, [field]: strings.editor.dateNotUnderstood }));
+    }
   }
 
   /**
@@ -570,7 +640,8 @@ export function DiaryEditorPage() {
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     if (!editor) return;
-    if (!isHeaderComplete(header)) {
+    const hasUnresolvedDate = Boolean(dateFieldError.incidentDateTime || dateFieldError.firRegistrationDateTime);
+    if (!isHeaderComplete(header) || hasUnresolvedDate) {
       setCreateError(strings.editor.createFailed);
       return;
     }
@@ -799,45 +870,63 @@ export function DiaryEditorPage() {
             className={cn("grid grid-cols-1 border-b border-border p-6 sm:grid-cols-2", COMPACT_FIELD_GRID)}
             onSubmit={isNew ? (event) => void handleCreate(event) : (event) => event.preventDefault()}
           >
-            <HeaderField label="CD No." htmlFor="cdNo">
-              <Input
-                id="cdNo"
-                value={header.cdNo}
-                onChange={(e) => updateHeader("cdNo", e.target.value)}
-                maxLength={32}
-                placeholder="Auto"
-              />
-            </HeaderField>
+            {/* CD No., CD Date, and Case type share one line at `sm:` and up — a
+                deliberate exception to the 2-per-row grid below, since these
+                three read naturally as one "which case diary is this" group.
+                Stacked (one per line) below `sm:`, same as every other field. */}
+            <div className="flex flex-col gap-x-4 sm:col-span-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <HeaderField label="CD No." htmlFor="cdNo" className="sm:w-24 sm:flex-none">
+                <Input
+                  id="cdNo"
+                  className={RULED_INPUT_CLASS}
+                  value={header.cdNo}
+                  onChange={(e) => updateHeader("cdNo", e.target.value)}
+                  maxLength={32}
+                  placeholder="Auto"
+                />
+              </HeaderField>
 
-            <HeaderField label="CD Date" htmlFor="cdDate">
-              <Input
-                id="cdDate"
-                value={header.cdDate}
-                onChange={(e) => updateHeader("cdDate", e.target.value)}
-                placeholder="dd/mm/yyyy"
-                maxLength={10}
-                inputMode="numeric"
-              />
-            </HeaderField>
+              <HeaderField label="CD Date" htmlFor="cdDate" className="sm:max-w-56 sm:min-w-32 sm:flex-1">
+                <Input
+                  id="cdDate"
+                  className={RULED_INPUT_CLASS}
+                  value={header.cdDate}
+                  onChange={(e) => updateHeader("cdDate", e.target.value)}
+                  placeholder="dd/mm/yyyy"
+                  maxLength={10}
+                  inputMode="numeric"
+                />
+              </HeaderField>
 
-            <HeaderField label={strings.diary.fields.caseType} htmlFor="caseTypeId">
-              <Select value={header.caseTypeId} onValueChange={(value) => updateHeader("caseTypeId", value)}>
-                <SelectTrigger id="caseTypeId" size="compact" className="w-full">
-                  <SelectValue placeholder={strings.editor.selectCaseType} />
-                </SelectTrigger>
-                <SelectContent>
-                  {caseTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </HeaderField>
+              <HeaderField label={strings.diary.fields.caseType} htmlFor="caseTypeId" className="sm:max-w-72 sm:min-w-40 sm:flex-1">
+                <Select value={header.caseTypeId} onValueChange={(value) => updateHeader("caseTypeId", value)}>
+                  <SelectTrigger id="caseTypeId" size="compact" className="w-full">
+                    <SelectValue placeholder={strings.editor.selectCaseType} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {caseTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </HeaderField>
+
+              {/* Placeholder chip — what this copies (and to/from where) is coming later.
+                  `sm:ml-auto` pins it to the far right of this row, past Case type. */}
+              <div className="flex items-end border-b border-border pb-1.5 sm:ml-auto sm:flex-none sm:items-center sm:border-0 sm:pb-0">
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 rounded-full px-2.5 text-xs">
+                  <CopyIcon className="size-3" />
+                  Copy
+                </Button>
+              </div>
+            </div>
 
             <HeaderField label={strings.diary.fields.firNo} htmlFor="firNo">
               <Input
                 id="firNo"
+                className={RULED_INPUT_CLASS}
                 value={header.firNo}
                 onChange={(e) => updateHeader("firNo", e.target.value)}
                 maxLength={64}
@@ -848,6 +937,7 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.underSection} htmlFor="underSection">
               <Input
                 id="underSection"
+                className={RULED_INPUT_CLASS}
                 value={header.underSection}
                 onChange={(e) => updateHeader("underSection", e.target.value)}
                 maxLength={500}
@@ -858,6 +948,7 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.policeStation} htmlFor="policeStation">
               <Input
                 id="policeStation"
+                className={RULED_INPUT_CLASS}
                 value={header.policeStation}
                 onChange={(e) => updateHeader("policeStation", e.target.value)}
                 maxLength={200}
@@ -868,30 +959,35 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.incidentDateTime} htmlFor="incidentDateTime">
               <Input
                 id="incidentDateTime"
-                value={toDatetimeLocalValue(header.incidentDateTime)}
-                onChange={(e) => updateHeader("incidentDateTime", fromDatetimeLocalValue(e.target.value))}
+                className={RULED_INPUT_CLASS}
+                value={rawDateInput.incidentDateTime ?? toDatetimeLocalValue(header.incidentDateTime)}
+                onChange={(e) => handleDateFieldChange("incidentDateTime", e.target.value)}
                 placeholder="dd/mm/yyyy HH:mm"
-                maxLength={16}
-                inputMode="numeric"
                 required={isNew}
               />
+              {dateFieldError.incidentDateTime && (
+                <p className="text-xs text-destructive">{dateFieldError.incidentDateTime}</p>
+              )}
             </HeaderField>
 
             <HeaderField label={strings.diary.fields.firRegistrationDateTime} htmlFor="firRegistrationDateTime">
               <Input
                 id="firRegistrationDateTime"
-                value={toDatetimeLocalValue(header.firRegistrationDateTime)}
-                onChange={(e) => updateHeader("firRegistrationDateTime", fromDatetimeLocalValue(e.target.value))}
+                className={RULED_INPUT_CLASS}
+                value={rawDateInput.firRegistrationDateTime ?? toDatetimeLocalValue(header.firRegistrationDateTime)}
+                onChange={(e) => handleDateFieldChange("firRegistrationDateTime", e.target.value)}
                 placeholder="dd/mm/yyyy HH:mm"
-                maxLength={16}
-                inputMode="numeric"
                 required={isNew}
               />
+              {dateFieldError.firRegistrationDateTime && (
+                <p className="text-xs text-destructive">{dateFieldError.firRegistrationDateTime}</p>
+              )}
             </HeaderField>
 
             <HeaderField label={strings.diary.fields.placeOfIncidence} htmlFor="placeOfIncidence">
               <Input
                 id="placeOfIncidence"
+                className={RULED_INPUT_CLASS}
                 value={header.placeOfIncidence}
                 onChange={(e) => updateHeader("placeOfIncidence", e.target.value)}
                 maxLength={500}
@@ -902,6 +998,7 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.plaintiffName} htmlFor="plaintiffName">
               <Input
                 id="plaintiffName"
+                className={RULED_INPUT_CLASS}
                 value={header.plaintiffName}
                 onChange={(e) => updateHeader("plaintiffName", e.target.value)}
                 maxLength={200}
@@ -912,6 +1009,7 @@ export function DiaryEditorPage() {
             <HeaderField label={strings.diary.fields.accusedName} htmlFor="accusedName" className="sm:col-span-2">
               <Textarea
                 id="accusedName"
+                className={RULED_INPUT_CLASS}
                 value={header.accusedName}
                 onChange={(e) => updateHeader("accusedName", e.target.value)}
                 maxLength={10000}
