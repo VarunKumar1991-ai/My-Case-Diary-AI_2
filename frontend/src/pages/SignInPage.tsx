@@ -4,7 +4,6 @@ import { toast } from "sonner";
 
 import { authApi, type SigninIdentifier } from "@/apis/auth";
 import { ApiError } from "@/apis/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -172,12 +171,12 @@ export function SignInPage() {
     <div className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
       <Dialog>
         <DialogTrigger asChild>
-          <Badge
-            variant="destructive"
-            className="absolute top-4 right-4 cursor-pointer px-3 py-1 text-sm"
+          <button
+            type="button"
+            className="absolute top-4 right-4 inline-flex w-fit shrink-0 cursor-pointer items-center justify-center rounded-full bg-red-400 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-red-950"
           >
             {strings.auth.aboutMeChip}
-          </Badge>
+          </button>
         </DialogTrigger>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
