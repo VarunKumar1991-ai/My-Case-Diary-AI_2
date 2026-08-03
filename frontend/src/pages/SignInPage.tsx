@@ -1,4 +1,4 @@
-import { BookOpenIcon } from "lucide-react";
+import { BookOpenTextIcon } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -176,7 +176,7 @@ export function SignInPage() {
             type="button"
             className="absolute top-4 right-4 inline-flex w-fit shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full bg-red-400 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-red-950"
           >
-            <BookOpenIcon className="size-3" />
+            <BookOpenTextIcon className="size-3.5" />
             {strings.auth.aboutMeChip}
           </button>
         </DialogTrigger>
