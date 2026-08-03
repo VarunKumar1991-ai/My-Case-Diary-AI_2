@@ -14,7 +14,7 @@ import {
   type CaseDiarySummary,
   type ShareLog,
 } from "@/apis/caseDiaries";
-import { ApiError } from "@/apis/client";
+import { ApiError, API_BASE_URL } from "@/apis/client";
 import { lookupsApi, type LookupOfficer, type LookupOption } from "@/apis/lookups";
 import { profileApi } from "@/apis/profile";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,7 @@ import { useStrings } from "@/i18n";
 import { COMPACT_FIELD_GRID } from "@/lib/formStyles";
 import { cn, formatDateTime, toDateDisplay } from "@/lib/utils";
 
-const SAVE_DEBOUNCE_MS = 1000;
+const SAVE_DEBOUNCE_MS = 3000;
 
 // Diary Body font-size control (MS-Word-style): a dropdown of common sizes plus
 // −/+ steppers. The chosen size applies uniformly to the whole body (set on the
@@ -469,6 +469,40 @@ export function DiaryEditorPage() {
       editor.off("create", applyFontSize);
     };
   }, [editor, fontSize]);
+
+  // Best-effort flush of a still-pending autosave right when the officer
+  // leaves — tab close/refresh (`beforeunload`) or navigating elsewhere in the
+  // app (this effect's cleanup, which runs on unmount). Widening the debounce
+  // above widens the window of unsaved typing that a bare close/navigate would
+  // otherwise silently drop, so this closes that gap regardless of the debounce
+  // value. Bypasses the normal `api.put` wrapper (no 401-retry, no error toast —
+  // the page is already gone by the time either could matter) and sets `fetch`'s
+  // `keepalive` flag so the browser finishes sending the request instead of
+  // aborting it mid-unload. No-ops when there's nothing pending, so a routine
+  // navigation right after a save has already landed doesn't fire a redundant one.
+  useEffect(() => {
+    function flushPendingSave() {
+      if (saveTimerRef.current === null || !diary || !editor) return;
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      // POST, not PUT, and no Content-Type header: a keepalive fetch only survives
+      // real page unload for a CORS-simple request (no preflight) — see routes.ts.
+      fetch(`${API_BASE_URL}/case-diaries/${diary.id}`, {
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({ ...buildHeaderPayload(headerRef.current), body: editor.getJSON() }),
+        keepalive: true,
+      }).catch(() => {
+        // Nothing meaningful to do — the page is unloading either way.
+      });
+    }
+
+    window.addEventListener("beforeunload", flushPendingSave);
+    return () => {
+      window.removeEventListener("beforeunload", flushPendingSave);
+      flushPendingSave();
+    };
+  }, [diary, editor]);
 
   // ── Auto-fill new diary header from the latest existing diary ───────────
   // Only runs when the left-panel "New diary" button was clicked

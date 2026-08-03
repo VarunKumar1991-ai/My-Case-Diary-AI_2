@@ -9,7 +9,10 @@
  * itself (architecture.md §5: auth state comes from `GET /me` only).
  */
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+// Exported for the rare caller that must bypass this module's `request()` (e.g.
+// a `beforeunload` flush using `fetch(..., { keepalive: true })`, which can't go
+// through the normal retry/error-toast pipeline since the page is unloading).
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
 
 export interface ApiErrorBody {
   code: string;

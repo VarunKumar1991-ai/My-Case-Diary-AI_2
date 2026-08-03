@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { authGuard } from "../../middleware/authGuard.js";
 import { otpRateLimiter } from "../../middleware/rateLimiter.js";
 import { asyncHandler } from "../../shared/asyncHandler.js";
@@ -35,6 +35,15 @@ caseDiaryRouter.get("/case-diaries/next-no", asyncHandler(getNextCaseDiaryNo));
 
 caseDiaryRouter.get("/case-diaries/:id", asyncHandler(getCaseDiary));
 caseDiaryRouter.put("/case-diaries/:id", asyncHandler(putCaseDiary));
+// POST alias for the beforeunload/tab-close flush only: a `fetch(..., { keepalive:
+// true })` can survive page unload ONLY for a CORS-simple request (no preflight).
+// PUT is never a simple method, and a declared `Content-Type: application/json`
+// isn't a simple content type either — either one forces a preflight, which
+// keepalive does not support, so the browser silently drops the save on real
+// unload. This route lets the flush use POST with no Content-Type header (the
+// browser then defaults to `text/plain`, which is preflight-exempt); `type: () =>
+// true` forces express.json to parse that body anyway.
+caseDiaryRouter.post("/case-diaries/:id", express.json({ type: () => true }), asyncHandler(putCaseDiary));
 caseDiaryRouter.delete("/case-diaries/:id", asyncHandler(deleteCaseDiaryHandler));
 caseDiaryRouter.get("/case-diaries/:id/revisions", asyncHandler(getCaseDiaryRevisions));
 
