@@ -89,6 +89,7 @@ export const en = {
     enterCode: "Enter the 6-digit code sent to your registered contact details.",
     changeDetails: "Use different details",
     resendCode: "Send a new code",
+    aboutMeChip: "Read me!",
     signInMethod: "Sign-in method",
     passwordSignInTagline: "Enter your PNO or registered email, plus your password, to continue.",
     loginWithPassword: "Login with password",

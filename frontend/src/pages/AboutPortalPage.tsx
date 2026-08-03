@@ -4,21 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStrings } from "@/i18n";
 
 /**
- * Static informational page reached from the sidebar ("About this Portal").
- * Explains the platform's purpose and — critically — that it is a pre-submission
- * drafting aid, never an official record system or a CCTNS replacement.
+ * The actual "About this Portal" content, shared between the full page
+ * (sidebar-reachable) and the sign-in page's popup — same static copy either way.
  */
-export function AboutPortalPage() {
+export function AboutPortalContent() {
   const strings = useStrings();
   const about = strings.about;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-heading">{about.heading}</h1>
-        <p className="text-sm text-muted-foreground">{about.subheading}</p>
-      </div>
-
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{about.whatHeading}</CardTitle>
@@ -67,6 +61,27 @@ export function AboutPortalPage() {
           <p className="text-sm text-muted-foreground">{about.disclaimerBody}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Static informational page reached from the sidebar ("About this Portal").
+ * Explains the platform's purpose and — critically — that it is a pre-submission
+ * drafting aid, never an official record system or a CCTNS replacement.
+ */
+export function AboutPortalPage() {
+  const strings = useStrings();
+  const about = strings.about;
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold text-heading">{about.heading}</h1>
+        <p className="text-sm text-muted-foreground">{about.subheading}</p>
+      </div>
+
+      <AboutPortalContent />
     </div>
   );
 }

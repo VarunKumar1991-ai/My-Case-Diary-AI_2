@@ -4,12 +4,15 @@ import { toast } from "sonner";
 
 import { authApi, type SigninIdentifier } from "@/apis/auth";
 import { ApiError } from "@/apis/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useStrings } from "@/i18n";
+import { AboutPortalContent } from "@/pages/AboutPortalPage";
 
 type Mode = "password" | "otp" | "forgot";
 type Step = "identify" | "otp";
@@ -166,7 +169,24 @@ export function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
+      <Dialog>
+        <DialogTrigger asChild>
+          <Badge
+            variant="destructive"
+            className="absolute top-4 right-4 cursor-pointer px-3 py-1 text-sm"
+          >
+            {strings.auth.aboutMeChip}
+          </Badge>
+        </DialogTrigger>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{strings.about.heading}</DialogTitle>
+          </DialogHeader>
+          <AboutPortalContent />
+        </DialogContent>
+      </Dialog>
+
       {/* Brand sits above the card, on the page itself — the card's border stays unbroken. */}
       <h1 className="text-center font-mono text-2xl leading-tight font-semibold text-primary">{strings.app.name}</h1>
       <Card className="w-full max-w-sm">
