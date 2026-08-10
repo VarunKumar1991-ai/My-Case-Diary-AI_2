@@ -169,25 +169,7 @@ export function SignInPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
-      <Dialog>
-        <DialogTrigger asChild>
-          <button
-            type="button"
-            className="absolute top-4 right-4 inline-flex w-fit shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full bg-red-400 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-red-950"
-          >
-            <BookOpenTextIcon className="size-3.5" />
-            {strings.auth.aboutMeChip}
-          </button>
-        </DialogTrigger>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{strings.about.heading}</DialogTitle>
-          </DialogHeader>
-          <AboutPortalContent />
-        </DialogContent>
-      </Dialog>
-
+    <div className="flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
       {/* Brand sits above the card, on the page itself — the card's border stays unbroken. */}
       <h1 className="text-center font-mono text-2xl leading-tight font-semibold text-primary">{strings.app.name}</h1>
       <Card className="w-full max-w-sm">
@@ -393,6 +375,24 @@ export function SignInPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex w-fit shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full bg-green-400 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-green-950"
+          >
+            <BookOpenTextIcon className="size-3.5" />
+            {strings.auth.aboutMeChip}
+          </button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{strings.about.heading}</DialogTitle>
+          </DialogHeader>
+          <AboutPortalContent />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
