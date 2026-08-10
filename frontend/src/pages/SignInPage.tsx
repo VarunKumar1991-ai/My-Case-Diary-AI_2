@@ -11,8 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useAuth } from "@/context/AuthContext";
 import { useStrings } from "@/i18n";
+import { en } from "@/i18n/en";
 import { AboutPortalContent } from "@/pages/AboutPortalPage";
 
 type Mode = "password" | "otp" | "forgot";
@@ -33,7 +35,11 @@ const MOBILE_PATTERN = /^(?:\+91|91|0)?[6-9]\d{9}$/;
  * by whether it contains "@" and sent as the matching half of `SigninIdentifier`.
  */
 export function SignInPage() {
-  const strings = useStrings();
+  // The sign-in window itself always stays English — only the "Read me!"
+  // popup it opens is translatable (its own LanguageSelect, scoped to the
+  // shared LocaleContext, drives `popupStrings` below).
+  const strings = en;
+  const popupStrings = useStrings();
   const navigate = useNavigate();
   const { refresh } = useAuth();
 
@@ -170,9 +176,7 @@ export function SignInPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
-      <LanguageSelect className="absolute top-4 right-4" />
-
+    <div className="flex min-h-svh flex-col items-center justify-center gap-5 bg-background px-4 py-10">
       {/* Brand sits above the card, on the page itself — the card's border stays unbroken. */}
       <h1 className="text-center font-mono text-2xl leading-tight font-semibold text-primary">{strings.app.name}</h1>
       <Card className="w-full max-w-sm">
@@ -243,9 +247,8 @@ export function SignInPage() {
                     {strings.auth.forgotPassword}
                   </button>
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -274,9 +277,8 @@ export function SignInPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="reset-current">{strings.auth.currentPassword}</Label>
-                <Input
+                <PasswordInput
                   id="reset-current"
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -285,9 +287,8 @@ export function SignInPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="reset-new">{strings.auth.newPassword}</Label>
-                <Input
+                <PasswordInput
                   id="reset-new"
-                  type="password"
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -297,9 +298,8 @@ export function SignInPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="reset-confirm">{strings.auth.confirmNewPassword}</Label>
-                <Input
+                <PasswordInput
                   id="reset-confirm"
-                  type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -391,7 +391,7 @@ export function SignInPage() {
         </DialogTrigger>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader className="flex-row flex-wrap items-center justify-between gap-2 pr-8 text-left">
-            <DialogTitle>{strings.about.heading}</DialogTitle>
+            <DialogTitle>{popupStrings.about.heading}</DialogTitle>
             <LanguageSelect />
           </DialogHeader>
           <AboutPortalContent />
