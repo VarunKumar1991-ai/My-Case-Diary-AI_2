@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { authApi } from "@/apis/auth";
 import { ApiError } from "@/apis/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useStrings } from "@/i18n";
 
 /**
@@ -52,9 +52,8 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void | Pro
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="current-password">{strings.auth.currentPassword}</Label>
-        <Input
+        <PasswordInput
           id="current-password"
-          type="password"
           autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
@@ -63,9 +62,8 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void | Pro
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-password">{strings.auth.newPassword}</Label>
-        <Input
+        <PasswordInput
           id="new-password"
-          type="password"
           autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -75,9 +73,8 @@ export function ChangePasswordForm({ onChanged }: { onChanged?: () => void | Pro
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="confirm-password">{strings.auth.confirmNewPassword}</Label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type="password"
           autoComplete="new-password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
