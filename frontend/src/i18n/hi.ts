@@ -9,7 +9,11 @@ import { en, type Strings } from "./en";
  * else is inherited from `en` unchanged so the rest of the app keeps
  * rendering in English even if `hi` is selected.
  */
-export const hi: Strings = {
+// `en`'s fields are `as const` literal types (e.g. `auth.signIn: "Sign in"`),
+// so a direct `: Strings` annotation here would reject any different string
+// value. Build the object untyped (each field widens to plain `string`) and
+// assert the shape at the end instead.
+const hiDictionary = {
   ...en,
   common: {
     ...en.common,
@@ -96,3 +100,5 @@ export const hi: Strings = {
       "यह केवल एक प्रारूपण सहायक है। यह CCTNS में सबमिट नहीं करता, उससे सिंक नहीं करता, या उसका स्थान नहीं लेता। आधिकारिक अभिलेख हमेशा CCTNS की आधिकारिक प्रविष्टि ही रहेगा।",
   },
 };
+
+export const hi: Strings = hiDictionary as unknown as Strings;
